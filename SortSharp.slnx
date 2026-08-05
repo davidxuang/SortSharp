@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="SortSharp.Benchmarks/SortSharp.Benchmarks.csproj" Id="751e0a10-fcc9-46f1-8f9b-6a2ca012cbc3" />
+  <Project Path="SortSharp.SourceGeneration/SortSharp.SourceGeneration.csproj" />
+  <Project Path="SortSharp.Tests/SortSharp.Tests.csproj" Id="15058b30-ccc3-4409-8a5d-e1ae694c6e50" />
+  <Project Path="SortSharp/SortSharp.csproj" />
+</Solution>

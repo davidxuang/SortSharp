@@ -1,0 +1,48 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <!--<PropertyGroup>
+    <ILRepack>$(PkgILRepack)\tools\ILRepack.exe</ILRepack>
+    <RoslynLibPath>$(PkgMicrosoft_CodeAnalysis_Common)\lib\netstandard2.0</RoslynLibPath>
+    <OneOfLibPath>$(PkgOneOf)\lib\netstandard2.0</OneOfLibPath>
+  </PropertyGroup>-->
+
+  <ItemGroup>
+    <!--<PackageReference Include="ILRepack" Version="2.0.*" GeneratePathProperty="true" PrivateAssets="all" />-->
+    <!--<PackageReference Include="Microsoft.CodeAnalysis.Common" Version="5.6.*" GeneratePathProperty="true" PrivateAssets="all" />-->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.6.*" PrivateAssets="all" />
+    <!--<PackageReference Include="OneOf" Version="3.0.*" GeneratePathProperty="true" />-->
+    <PackageReference Include="PolySharp" Version="1.16.*">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../SortSharp/SourceGeneration/*.cs" />
+  </ItemGroup>
+
+  <!--<Target Name="MergeAnalyzerDependencies" AfterTargets="Build">
+    <PropertyGroup>
+      <OriginalAnalyzerPath>$(OutputPath)$(AssemblyName).dll</OriginalAnalyzerPath>
+      <BackupAnalyzerPath>$(OutputPath)$(AssemblyName).original.dll</BackupAnalyzerPath>
+    </PropertyGroup>
+    
+    <Copy SourceFiles="$(OriginalAnalyzerPath)" DestinationFiles="$(BackupAnalyzerPath)" />
+    <Exec
+      Command="&quot;$(ILRepack)&quot; /out:&quot;$(OriginalAnalyzerPath)&quot; /lib:&quot;$(RoslynLibPath)&quot; /allowDup /internalize &quot;$(BackupAnalyzerPath)&quot; &quot;$(OneOfLibPath)\OneOf.dll&quot;"
+      ContinueOnError="false" />
+    <Delete Files="$(BackupAnalyzerPath)" />
+    <Message Text="ILRepack: Merged analyzer and dependencies into $(OriginalAnalyzerPath)" Importance="high" />
+  </Target>-->
+
+</Project>

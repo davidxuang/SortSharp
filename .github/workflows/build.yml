@@ -1,0 +1,90 @@
+name: Build
+
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore SortSharp.slnx
+
+      - name: Build
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          dotnet build SortSharp.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          dotnet test SortSharp.Tests/SortSharp.Tests.csproj --configuration Release --no-build
+
+  publish:
+    name: Publish to NuGet
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    needs: build
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: olegtarasov/get-tag@v2-release
+        id: tag_name
+        with:
+          tagRegex: "^v?(.+)$"
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Pack
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.tag_name.outputs.tag }}
+        run: |
+          dotnet pack SortSharp/SortSharp.csproj `
+            --configuration Release `
+            --output artifacts/packages `
+            -p:PackageVersion=$env:VERSION
+
+      - name: Login to NuGet
+        uses: NuGet/login@v1
+        id: nuget
+        with:
+          user: davidxuang
+
+      - name: Publish packages
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          foreach ($package in Get-ChildItem artifacts/packages -Filter *.nupkg) {
+            dotnet nuget push $package.FullName `
+              --source https://api.nuget.org/v3/index.json `
+              --api-key ${{ steps.nuget.outputs.NUGET_API_KEY }} `
+              --skip-duplicate
+          }
