@@ -66,18 +66,6 @@ internal static partial class SpanExtensions
     }
 #endif
 
-#if !NETSTANDARD2_1_OR_GREATER && !NETCOREAPP2_1_OR_GREATER
-    extension<T>(Span<T>)
-    {
-        public static Span<T> DangerousCreate(object obj, ref T objectData, int length)
-        {
-            Pinnable<T> pinnable = Unsafe.As<Pinnable<T>>(obj);
-            IntPtr byteOffset = Unsafe.ByteOffset(in pinnable.Data, in objectData);
-            return new Span<T>(pinnable, byteOffset, length);
-        }
-    }
-#endif
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static int Offset<T>(this scoped ReadOnlySpan<T> span, ref readonly T value)
         => (int)Unsafe.ByteOffset(in MemoryMarshal.GetReference(span), in value) / Unsafe.SizeOf<T>();

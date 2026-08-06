@@ -1,4 +1,5 @@
-﻿using Microsoft.CodeAnalysis;
+﻿using System.Xml.Linq;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using F = Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
@@ -35,9 +36,9 @@ internal sealed class InlineArrayGenerator : IIncrementalGenerator
                 {
                     return Diagnostic.Create(
                         new DiagnosticDescriptor(
-                            "IA002",
-                            "Inline array struct must have at least one static field",
-                            "Inline array struct '{0}' must have at least one static field",
+                            "IA001",
+                            "Inline array struct must have no instance fields",
+                            "Inline array struct '{0}' must have no instance fields",
                             nameof(InlineArrayGenerator),
                             DiagnosticSeverity.Error,
                             true),
@@ -52,86 +53,40 @@ internal sealed class InlineArrayGenerator : IIncrementalGenerator
                     .WithAttributeLists([F.AttributeList([
                         F.Attribute(F.ParseName("global::System.Runtime.InteropServices.StructLayoutAttribute"))
                             .WithArgumentList(F.AttributeArgumentList([
-                                F.AttributeArgument(F.ParseExpression("global::System.Runtime.InteropServices.LayoutKind.Sequential")),
-                                //F.AttributeArgument(
-                                //    F.NameEquals("Pack"),
-                                //    default,
-                                //    F.ParseExpression("1"))
-                                ]))])])
+                                F.AttributeArgument(F.ParseExpression("global::System.Runtime.InteropServices.LayoutKind.Sequential"))]))])])
                     .WithOpenBraceToken(F.Token(SyntaxKind.OpenBraceToken))
                     .WithMembers([
                         .. Enumerable.Range(0, length).Select(i => F.FieldDeclaration(
                             F.VariableDeclaration(F.IdentifierName(type))
                                 .WithVariables([F.VariableDeclarator(F.Identifier($"item{i}"))]))),
-                        F.MethodDeclaration(F.RefType(F.ParseTypeName(type)), "Ref")
-                            .WithAttributeLists([F.AttributeList([
-                                F.Attribute(F.ParseName("global::System.Runtime.CompilerServices.MethodImplAttribute"))
-                                    .WithArgumentList(F.AttributeArgumentList([
-                                        F.AttributeArgument(F.ParseExpression("global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining"))]))])])
-                            .WithModifiers([ F.Token(SyntaxKind.PublicKeyword), F.Token(SyntaxKind.StaticKeyword) ])
-                            .WithParameterList(F.ParameterList([
-                                F.Parameter(F.Identifier("value"))
-                                    .WithModifiers(F.TokenList(F.Token(SyntaxKind.RefKeyword)))
-                                    .WithType(F.ParseTypeName(symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat))),
-                                F.Parameter(F.Identifier("i")).WithType(F.PredefinedType(F.Token(SyntaxKind.IntKeyword)))]))
-                            .WithExpressionBody(F.ArrowExpressionClause(
-                                F.ParseExpression("ref global::System.Runtime.CompilerServices.Unsafe.Add(ref value.item0, i)")))
-                            .WithSemicolonToken(F.Token(SyntaxKind.SemicolonToken))
-                    ]).WithCloseBraceToken(F.Token(SyntaxKind.CloseBraceToken));
-
-                if (create)
-                {
-                    node = node.AddMembers(
-                        F.MethodDeclaration(F.ParseTypeName($"global::System.Span<{type}>"), "AsSpan")
-                            .WithAttributeLists([F.AttributeList([
-                                F.Attribute(F.ParseName("global::System.Runtime.CompilerServices.MethodImplAttribute"))
-                                    .WithArgumentList(F.AttributeArgumentList([
-                                        F.AttributeArgument(F.ParseExpression("global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining"))]))])])
-                            .WithModifiers([F.Token(SyntaxKind.PublicKeyword), F.Token(SyntaxKind.StaticKeyword)])
-                            .WithParameterList(F.ParameterList([
-                                F.Parameter(F.Identifier("value"))
-                                    .WithModifiers(F.TokenList(F.Token(SyntaxKind.RefKeyword)))
-                                    .WithType(F.ParseTypeName(symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat))),
-                                F.Parameter(F.Identifier("length")).WithType(F.PredefinedType(F.Token(SyntaxKind.IntKeyword))).WithDefault(F.EqualsValueClause(F.ParseExpression($"{length}")))]))
-                            .WithExpressionBody(F.ArrowExpressionClause(
-                                F.ParseExpression($"global::System.Runtime.InteropServices.MemoryMarshal.CreateSpan(ref value.item0, length)")))
-                            .WithSemicolonToken(F.Token(SyntaxKind.SemicolonToken))
-                        );
-                }
-                //else
-                //{
-                //    node = node.AddMembers([
-                //        F.MethodDeclaration(F.ParseTypeName($"global::System.Span<{type}>"), "AsSpan")
-                //            .WithAttributeLists([F.AttributeList([
-                //                F.Attribute(F.ParseName("global::System.Runtime.CompilerServices.MethodImplAttribute"))
-                //                    .WithArgumentList(F.AttributeArgumentList([
-                //                        F.AttributeArgument(F.ParseExpression("global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining"))]))])])
-                //            .WithModifiers([F.Token(SyntaxKind.PublicKeyword), F.Token(SyntaxKind.StaticKeyword)])
-                //            .WithParameterList(F.ParameterList([
-                //                F.Parameter(F.Identifier("value"))
-                //                    .WithModifiers(F.TokenList(F.Token(SyntaxKind.RefKeyword)))
-                //                    .WithType(F.ParseTypeName(symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat))),
-                //                F.Parameter(F.Identifier("length")).WithType(F.PredefinedType(F.Token(SyntaxKind.IntKeyword))).WithDefault(F.EqualsValueClause(F.ParseExpression($"{length}")))
-                //            ])).WithExpressionBody(F.ArrowExpressionClause(
-                //                F.ParseExpression($"global::System.Span<T>.DangerousCreate(null, ref value.item0, length)")))
-                //            .WithSemicolonToken(F.Token(SyntaxKind.SemicolonToken)),
-                //        F.FieldDeclaration(F.VariableDeclaration(F.ParseTypeName("int")).WithVariables([F.VariableDeclarator(F.Identifier("touch"))]))
-                //            .WithModifiers([F.Token(SyntaxKind.PrivateKeyword), F.Token(SyntaxKind.StaticKeyword)]),
-                //        F.MethodDeclaration(F.PredefinedType(F.Token(SyntaxKind.VoidKeyword)), "Touch")
-                //            .WithAttributeLists([F.AttributeList([
-                //                F.Attribute(F.ParseName("global::System.Runtime.CompilerServices.MethodImplAttribute"))
-                //                    .WithArgumentList(F.AttributeArgumentList([
-                //                        F.AttributeArgument(F.ParseExpression("global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining"))]))])])
-                //            .WithModifiers([F.Token(SyntaxKind.PublicKeyword), F.Token(SyntaxKind.StaticKeyword)])
-                //            .WithParameterList(F.ParameterList([
-                //                F.Parameter(F.Identifier("value"))
-                //                    .WithModifiers(F.TokenList(F.Token(SyntaxKind.RefKeyword)))
-                //                    .WithType(F.ParseTypeName(symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)))
-                //            ])).WithBody(F.Block(new[] {
-                //                F.ExpressionStatement(F.ParseExpression($"_ = global::System.Threading.Interlocked.Increment(ref touch)"))
-                //            }))
-                //        ]);
-                //}
+                        GetRefMethod(type, "item0"),
+                        GetCopyMethod(type, create
+                            ? F.Block(
+                                F.ParseStatement($"global::System.Diagnostics.Debug.Assert(span.Length <= {length});"),
+                                F.ParseStatement($"global::System.Runtime.InteropServices.MemoryMarshal.CreateReadOnlySpan(in item0, span.Length).CopyTo(span);"))
+                            : F.Block(
+                                F.ParseStatement($"global::System.Diagnostics.Debug.Assert(span.Length <= {length});"),
+                                F.ParseStatement($"if (span.Length == 0) return;"),
+                                F.ParseStatement("ref T src = ref item0;"),
+                                F.ParseStatement("ref T dst = ref global::System.Runtime.InteropServices.MemoryMarshal.GetReference(span);"),
+                                F.ParseStatement("int i = 0;"),
+                                F.ParseStatement("""
+                                    for (; i < (span.Length & ~3); i += 4)
+                                    {
+                                        global::System.Runtime.CompilerServices.Unsafe.Add(ref dst, i) = global::System.Runtime.CompilerServices.Unsafe.Add(ref src, i);
+                                        global::System.Runtime.CompilerServices.Unsafe.Add(ref dst, i + 1) = global::System.Runtime.CompilerServices.Unsafe.Add(ref src, i + 1);
+                                        global::System.Runtime.CompilerServices.Unsafe.Add(ref dst, i + 2) = global::System.Runtime.CompilerServices.Unsafe.Add(ref src, i + 2);
+                                        global::System.Runtime.CompilerServices.Unsafe.Add(ref dst, i + 3) = global::System.Runtime.CompilerServices.Unsafe.Add(ref src, i + 3);
+                                    }
+                                    """),
+                                F.ParseStatement("""
+                                    for (; i < span.Length; i++)
+                                    {
+                                        global::System.Runtime.CompilerServices.Unsafe.Add(ref dst, i) = global::System.Runtime.CompilerServices.Unsafe.Add(ref src, i);
+                                    }
+                                    """)
+                                ))
+                    ]).WithCloseBraceToken(F.Token(SyntaxKind.CloseBraceToken)).WithSemicolonToken(default);
 
                 TypeDeclarationSyntax x = decl, y = node;
                 List<string> names = [y.Identifier.Text];
@@ -166,4 +121,29 @@ internal sealed class InlineArrayGenerator : IIncrementalGenerator
                 throw new InvalidOperationException();
         });
     }
+
+    private static MemberDeclarationSyntax GetRefMethod(string type, string element)
+        => F.MethodDeclaration(F.RefType(F.ParseTypeName(type)), "Ref")
+            .WithAttributeLists([F.AttributeList([
+                F.Attribute(F.ParseName("global::System.Diagnostics.CodeAnalysis.UnscopedRefAttribute")),
+                F.Attribute(F.ParseName("global::System.Runtime.CompilerServices.MethodImplAttribute"))
+                    .WithArgumentList(F.AttributeArgumentList([
+                        F.AttributeArgument(F.ParseExpression("global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining"))]))])])
+            .WithModifiers([F.Token(SyntaxKind.PublicKeyword)])
+            .WithParameterList(F.ParameterList([
+                F.Parameter(F.Identifier("i")).WithType(F.PredefinedType(F.Token(SyntaxKind.IntKeyword)))]))
+            .WithExpressionBody(F.ArrowExpressionClause(
+                F.ParseExpression($"ref global::System.Runtime.CompilerServices.Unsafe.Add(ref {element}, i)")))
+            .WithSemicolonToken(F.Token(SyntaxKind.SemicolonToken));
+
+    private static MemberDeclarationSyntax GetCopyMethod(string type, BlockSyntax body)
+        => F.MethodDeclaration(F.ParseTypeName("void"), "CopyToFill")
+            .WithAttributeLists([F.AttributeList([
+                F.Attribute(F.ParseName("global::System.Runtime.CompilerServices.MethodImplAttribute"))
+                    .WithArgumentList(F.AttributeArgumentList([
+                        F.AttributeArgument(F.ParseExpression("global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining"))]))])])
+            .WithModifiers([F.Token(SyntaxKind.PublicKeyword)])
+            .WithParameterList(F.ParameterList([
+                F.Parameter(F.Identifier("span")).WithType(F.ParseTypeName($"global::System.Span<{type}>"))]))
+            .WithBody(body);
 }

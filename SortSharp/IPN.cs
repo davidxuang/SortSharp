@@ -123,19 +123,22 @@ internal abstract partial class IPN : SortBase
     /// within this limit.
     const int MaxStackArraySize = 4096;
 
-    // merged for code size
-    const int SmallSortScratchLen = SmallSortGeneralScratchLen >= SmallSortNetworkScratchLen
-        ? SmallSortGeneralScratchLen
-        : SmallSortNetworkScratchLen;
 #if NET8_0_OR_GREATER
-    [InlineArray(SmallSortScratchLen)]
-    partial struct Scratch<T>
+    [InlineArray(SmallSortGeneralScratchLen)]
+    partial struct ScratchG<T>
+    {
+        private T _element;
+    }
+    [InlineArray(SmallSortNetworkScratchLen)]
+    partial struct ScratchN<T>
     {
         private T _element;
     }
 #else
-    [GenerateInlineArray(nameof(T), SmallSortScratchLen)]
-    ref partial struct Scratch<T>;
+    [GenerateInlineArray(nameof(T), SmallSortGeneralScratchLen)]
+    ref partial struct ScratchG<T>;
+    [GenerateInlineArray(nameof(T), SmallSortNetworkScratchLen)]
+    ref partial struct ScratchN<T>;
 #endif
 
     internal sealed new partial class Fn<T> : SortBase.Fn<T>
@@ -162,11 +165,11 @@ internal abstract partial class IPN : SortBase
 
             int len2 = span.Length / 2;
             ref T first = ref span.Ref(0);
-            Scratch<T> scratch = new();
+            ScratchG<T> scratch = new();
 #if NET8_0_OR_GREATER
             ref T scr = ref ((Span<T>)scratch).Ref(0);
 #else
-            ref T scr = ref Scratch<T>.Ref(ref scratch, 0);
+            ref T scr = ref scratch.Ref(0);
 #endif
 
             int sorted;
@@ -214,12 +217,9 @@ internal abstract partial class IPN : SortBase
             catch
             {
 #if NET8_0_OR_GREATER
-                ((Span<T>)scratch).Sub(0, span.Length).CopyTo(span);
-#elif NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1_OR_GREATER
-                Scratch<T>.AsSpan(ref scratch, span.Length).CopyTo(span);
+                ((ReadOnlySpan<T>)scratch).Sub(0, span.Length).CopyTo(span);
 #else
-                for (int i = 0; i < span.Length; i++)
-                    Unsafe.Add(ref span.Ref(0), i) = Scratch<T>.Ref(ref scratch, i);
+                scratch.CopyToFill(span);
 #endif
                 throw;
             }
@@ -436,22 +436,19 @@ internal abstract partial class IPN : SortBase
                 region = span.Sub(len2, span.Length);
             }
 
-            Scratch<T> scratch = new();
+            ScratchN<T> scratch = new();
 #if NET8_0_OR_GREATER
             ref T scr = ref ((Span<T>)scratch).Ref(0);
 #else
-            ref T scr = ref Scratch<T>.Ref(ref scratch, 0);
+            ref T scr = ref scratch.Ref(0);
 #endif
 
             MergeBidirectional(in first, ref scr, span.Length);
 
 #if NET8_0_OR_GREATER
-            ((Span<T>)scratch).Sub(0, span.Length).CopyTo(span);
-#elif NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1_OR_GREATER
-            Scratch<T>.AsSpan(ref scratch, span.Length).CopyTo(span);
+            ((ReadOnlySpan<T>)scratch).Sub(0, span.Length).CopyTo(span);
 #else
-            for (int i = 0; i < span.Length; i++)
-                Unsafe.Add(ref span.Ref(0), i) = Unsafe.Add(ref scr, i);
+            scratch.CopyToFill(span);
 #endif
         }
 

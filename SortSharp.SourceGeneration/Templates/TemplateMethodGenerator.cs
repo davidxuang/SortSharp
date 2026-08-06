@@ -5,10 +5,9 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
-using SortSharp.SourceGeneration.Comparers;
 using F = Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
-namespace SortSharp.SourceGeneration;
+namespace SortSharp.SourceGeneration.Templates;
 
 [Generator]
 internal sealed class TemplateMethodGenerator : IIncrementalGenerator
@@ -209,6 +208,7 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
             ["SwapBlock"] = CallSiteBehaviors.RepeatCall,
             ["Rotate"] = CallSiteBehaviors.RepeatCall,
             ["CopyTo"] = CallSiteBehaviors.RepeatCall,
+            ["CopyToFill"] = CallSiteBehaviors.RepeatCall,
             ["Dispose"] = CallSiteBehaviors.RepeatCall,
         };
         string[] suffices = ["LE"];

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 
 namespace SortSharp.Extensions;
@@ -38,10 +39,11 @@ internal static class RuntimeExtensions
 
     private static bool IsReferenceOrContainsReferences(Type type)
     {
+        if (type.IsPrimitive) return false;
         if (!type.IsValueType) return true;
+        type = Nullable.GetUnderlyingType(type) ?? type;
         if (type.IsPrimitive || type.IsEnum) return false;
-        return type.GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public)
-            .Any(field => IsReferenceOrContainsReferences(field.FieldType));
+        return type.GetTypeInfo().DeclaredFields.Any(f => !f.IsStatic && IsReferenceOrContainsReferences(f.FieldType));
     }
 #endif
 }

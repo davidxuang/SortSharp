@@ -1,9 +1,8 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using F = Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
-namespace SortSharp.SourceGeneration.Comparers;
+namespace SortSharp.SourceGeneration.Templates;
 
 internal sealed class ComparableRewriter(string name) : CSharpSyntaxRewriter
 {

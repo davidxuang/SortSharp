@@ -3,7 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using F = Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
-namespace SortSharp.SourceGeneration;
+namespace SortSharp.SourceGeneration.Templates;
 
 internal class ItemsRewriter(
     IDictionary<string, CallSiteBehaviors> behaviors,
