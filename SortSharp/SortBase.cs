@@ -130,9 +130,9 @@ internal abstract partial class SortBase
             if (typeof(T) == typeof(long)) return (long)(object)a < (long)(object)b;
             if (typeof(T) == typeof(nuint)) return (nuint)(object)a < (nuint)(object)b;
             if (typeof(T) == typeof(nint)) return (nint)(object)a < (nint)(object)b;
-            if (typeof(T) == typeof(float)) return ((float)(object)a).CompareTo((float)(object)b) < 0;
-            if (typeof(T) == typeof(double)) return ((double)(object)a).CompareTo((double)(object)b) < 0;
-            if (typeof(T) == typeof(Half)) return ((Half)(object)a).CompareTo((Half)(object)b) < 0;
+            if (typeof(T) == typeof(float)) return (float)(object)a < (float)(object)b || (!((float)(object)a >= (float)(object)b) && !float.IsNaN((float)(object)b));
+            if (typeof(T) == typeof(double)) return (double)(object)a < (double)(object)b || (!((double)(object)a >= (double)(object)b) && !double.IsNaN((double)(object)b));
+            if (typeof(T) == typeof(Half)) return (Half)(object)a < (Half)(object)b || (!((Half)(object)a >= (Half)(object)b) && !Half.IsNaN((Half)(object)b));
             return a is not null
                 ? a.CompareTo(b) < 0
                 : b is not null;
