@@ -6,8 +6,8 @@
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
-    <CompilerGeneratedFilesOutputPath>obj/Generated/$(TargetFramework)</CompilerGeneratedFilesOutputPath>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <CompilerGeneratedFilesOutputPath>obj/$(Configuration)/$(TargetFramework)/Generated</CompilerGeneratedFilesOutputPath>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/davidxuang/SortSharp</RepositoryUrl>
     <IncludeSymbols>true</IncludeSymbols>
