@@ -1,10 +1,7 @@
 using System;
 using System.IO;
-using System.Linq;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
-using BenchmarkDotNet.Filters;
-using BenchmarkDotNet.Running;
 
 namespace SortSharp.Benchmarks;
 
@@ -125,50 +122,19 @@ public partial class StringBenchmarks
     private class Config : ConfigBase
     {
         public Config()
+            : base(GetSizesFromField(typeof(StringBenchmarks).GetField(nameof(Size))))
         {
             AddFilter(new Filter());
         }
     }
 
-    private class Filter : IFilter
+    private class Filter : FilterBase<StringPattern>
     {
-        private static int MinimumSize(StringPattern pattern)
+        protected override int GetMinimumSize(StringPattern pattern)
             => pattern switch
             {
                 StringPattern.NounZipf1 => 1000,
                 _ => 16,
             };
-
-        public bool Predicate(BenchmarkCase benchmarkCase)
-        {
-            int size = (int)benchmarkCase.Parameters.Items
-                .Single(p => p.Name == nameof(Size))
-                .Value;
-            var order = (OrderType)benchmarkCase.Parameters.Items
-                .Single(p => p.Name == nameof(Order))
-                .Value;
-            var pattern = (StringPattern)benchmarkCase.Parameters.Items
-                .Single(p => p.Name == nameof(Pattern))
-                .Value;
-            object variant = benchmarkCase.Parameters.Items
-                .FirstOrDefault(p => p.Name == "Variant")
-                ?.Value;
-
-            if (size < MinimumSize(pattern))
-                return false;
-
-            // filter policies
-            if (variant is MemoryPolicy policy)
-            {
-                return policy switch
-                {
-                    MemoryPolicy.Maximum => (size + 1) / 2 > 512,
-                    MemoryPolicy.Balanced => (int)Math.Sqrt((size + 1) / 2) + 1 > 512,
-                    _ => true,
-                };
-            }
-
-            return true;
-        }
     }
 }

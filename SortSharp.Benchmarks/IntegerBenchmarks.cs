@@ -3,8 +3,6 @@ using System.IO;
 using System.Linq;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
-using BenchmarkDotNet.Filters;
-using BenchmarkDotNet.Running;
 
 namespace SortSharp.Benchmarks;
 
@@ -106,14 +104,15 @@ public partial class IntegerBenchmarks
     private class Config : ConfigBase
     {
         public Config()
+            : base(GetSizesFromField(typeof(IntegerBenchmarks).GetField(nameof(Size))))
         {
             AddFilter(new Filter());
         }
     }
 
-    private class Filter : IFilter
+    private class Filter : FilterBase<IntegerPattern>
     {
-        private static int MinimumSize(IntegerPattern pattern)
+        protected override int GetMinimumSize(IntegerPattern pattern)
             => pattern switch
             {
                 IntegerPattern.Noisy => 1 << 8,
@@ -133,32 +132,6 @@ public partial class IntegerBenchmarks
                 IntegerPattern.Zipf1 => 1_000,
                 _ => 16,
             };
-
-        public bool Predicate(BenchmarkCase benchmarkCase)
-        {
-            int size = (int)benchmarkCase.Parameters.Items
-                .Single(p => p.Name == nameof(Size))
-                .Value;
-            var pattern = (IntegerPattern)benchmarkCase.Parameters.Items
-                .Single(p => p.Name == nameof(Pattern))
-                .Value;
-
-            if (size < MinimumSize(pattern))
-                return false;
-
-            // filter policies
-            if (benchmarkCase.Parameters.Items.FirstOrDefault(p => p.Name == "Variant")?.Value is MemoryPolicy policy)
-            {
-                return policy switch
-                {
-                    MemoryPolicy.Maximum => (size + 1) / 2 > 512,
-                    MemoryPolicy.Balanced => (int)Math.Sqrt((size + 1) / 2) + 1 > 512,
-                    _ => true,
-                };
-            }
-
-            return true;
-        }
     }
 }
 

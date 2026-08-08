@@ -4,7 +4,6 @@ using System.Linq;
 using System.Numerics;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
-using BenchmarkDotNet.Filters;
 using BenchmarkDotNet.Running;
 
 namespace SortSharp.Benchmarks;
@@ -134,51 +133,29 @@ public partial class DoubleBenchmarks
     private class Config : ConfigBase
     {
         public Config()
+            : base(GetSizesFromField(typeof(DoubleBenchmarks).GetField(nameof(Size))))
         {
             AddFilter(new Filter());
         }
     }
 
-    private class Filter : IFilter
+    private class Filter : FilterBase<DoublePattern>
     {
-        private static int MinimumSize(DoublePattern pattern)
+        protected override int GetMinimumSize(DoublePattern pattern)
             => pattern switch
             {
                 DoublePattern.NanTail5 => 1 << 8,
                 _ => 16,
             };
 
-        public bool Predicate(BenchmarkCase benchmarkCase)
+        protected override bool PredicateOverride(BenchmarkCase benchmarkCase, int size, DoublePattern pattern, object variant)
         {
-            int size = (int)benchmarkCase.Parameters.Items
-                .Single(p => p.Name == nameof(Size))
-                .Value;
             var order = (OrderType)benchmarkCase.Parameters.Items
                 .Single(p => p.Name == nameof(Order))
                 .Value;
-            var pattern = (DoublePattern)benchmarkCase.Parameters.Items
-                .Single(p => p.Name == nameof(Pattern))
-                .Value;
-            object variant = benchmarkCase.Parameters.Items
-                .FirstOrDefault(p => p.Name == "Variant")
-                ?.Value;
-
-            if (size < MinimumSize(pattern))
-                return false;
 
             if (order != OrderType.Default && variant is BranchlessVariant.Branchless)
                 return false;
-
-            // filter policies
-            if (variant is MemoryPolicy policy)
-            {
-                return policy switch
-                {
-                    MemoryPolicy.Maximum => (size + 1) / 2 > 512,
-                    MemoryPolicy.Balanced => (int)Math.Sqrt((size + 1) / 2) + 1 > 512,
-                    _ => true,
-                };
-            }
 
             return true;
         }
