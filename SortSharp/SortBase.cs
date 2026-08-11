@@ -29,7 +29,7 @@ internal abstract partial class SortBase
         ref T swap = ref span.Ref(0);
         ref T last = ref span.Ref(span.Length);
         while (!Unsafe.AreSame(ref first, ref last) && !T.IsNaN(first))
-            first = ref Unsafe.Next(ref first);
+            first = ref Unsafe.Inc(ref first);
         for (; !Unsafe.AreSame(ref first, ref last); first = ref Unsafe.Add(ref first, 1))
         {
             if (T.IsNaN(first))
@@ -264,8 +264,8 @@ internal abstract partial class SortBase
                 if (!Less(in indxB, in indxA, comp))
                 {
                     insert = indxA;
-                    indxA = ref Unsafe.RONext(in indxA);
-                    insert = ref Unsafe.Next(ref insert);
+                    indxA = ref Unsafe.RoInc(in indxA);
+                    insert = ref Unsafe.Inc(ref insert);
                     if (Unsafe.AreSame(in indxA, in lastA))
                     {
                         int i = span.Offset(in indxB), j = target.Offset(in insert);
@@ -276,8 +276,8 @@ internal abstract partial class SortBase
                 else
                 {
                     insert = indxB;
-                    indxB = ref Unsafe.RONext(in indxB);
-                    insert = ref Unsafe.Next(ref insert);
+                    indxB = ref Unsafe.RoInc(in indxB);
+                    insert = ref Unsafe.Inc(ref insert);
                     if (Unsafe.AreSame(in indxB, in lastB))
                     {
                         int i = span.Offset(in indxA), j = target.Offset(in insert);
@@ -338,9 +338,9 @@ internal abstract partial class SortBase
             ref T curr = ref Unsafe.Add(ref first, offset);
             while (--length != 0)
             {
-                curr = ref Unsafe.Next(ref curr);
+                curr = ref Unsafe.Inc(ref curr);
                 ref T sift = ref curr;
-                ref T sift1 = ref Unsafe.Prev(ref curr);
+                ref T sift1 = ref Unsafe.Dec(ref curr);
 
                 // Compare first so we can avoid 2 moves for an element already positioned correctly.
                 if (Less(in sift, in sift1, comp))
@@ -349,10 +349,10 @@ internal abstract partial class SortBase
                     do
                     {
                         sift = sift1;
-                        sift = ref Unsafe.Prev(ref sift);
+                        sift = ref Unsafe.Dec(ref sift);
 
                         if (Unsafe.AreSame(ref sift, ref first)) break;
-                        sift1 = ref Unsafe.Prev(ref sift1);
+                        sift1 = ref Unsafe.Dec(ref sift1);
                     }
                     while (Less(in tmp, in sift1, comp));
 

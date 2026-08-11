@@ -137,9 +137,9 @@ internal abstract partial class PDQ : SortBase
             ref T curr = ref first;
             while (--length != 0)
             {
-                curr = ref Unsafe.Next(ref curr);
+                curr = ref Unsafe.Inc(ref curr);
                 ref T sift = ref curr;
-                ref T sift1 = ref Unsafe.Prev(ref curr);
+                ref T sift1 = ref Unsafe.Dec(ref curr);
 
                 // Compare first so we can avoid 2 moves for an element already positioned correctly.
                 if (Less(in sift, in sift1, comp))
@@ -151,8 +151,8 @@ internal abstract partial class PDQ : SortBase
                         Ensure(!Unsafe.IsAddressGreaterThan(ref first, ref sift1));
 #endif
                         sift = sift1;
-                        sift = ref Unsafe.Prev(ref sift);
-                        sift1 = ref Unsafe.Prev(ref sift1);
+                        sift = ref Unsafe.Dec(ref sift);
+                        sift1 = ref Unsafe.Dec(ref sift1);
                     }
                     while (Less(in tmp, in sift1, comp));
 
@@ -173,9 +173,9 @@ internal abstract partial class PDQ : SortBase
             ref T curr = ref first;
             while (--length != 0)
             {
-                curr = ref Unsafe.Next(ref curr);
+                curr = ref Unsafe.Inc(ref curr);
                 ref T sift = ref curr;
-                ref T sift1 = ref Unsafe.Prev(ref curr);
+                ref T sift1 = ref Unsafe.Dec(ref curr);
 
                 // Compare first so we can avoid 2 moves for an element already positioned correctly.
                 if (Less(in sift, in sift1, comp))
@@ -184,11 +184,11 @@ internal abstract partial class PDQ : SortBase
                     do
                     {
                         sift = sift1;
-                        sift = ref Unsafe.Prev(ref sift);
+                        sift = ref Unsafe.Dec(ref sift);
                         limit++;
 
                         if (Unsafe.AreSame(ref sift, ref first)) break;
-                        sift1 = ref Unsafe.Prev(ref sift1);
+                        sift1 = ref Unsafe.Dec(ref sift1);
                     }
                     while (Less(in tmp, in sift1, comp));
 
@@ -251,20 +251,20 @@ internal abstract partial class PDQ : SortBase
 
             // Find the first element greater than or equal than the pivot (the median of 3 guarantees
             // this exists).
-            do first = ref Unsafe.Next(ref first);
+            do first = ref Unsafe.Inc(ref first);
             while (Less(in first, in pivot));
 
             // Find the first element strictly smaller than the pivot. We have to guard this search if
             // there was no element before *first.
-            if (Unsafe.AreSame(ref Unsafe.Prev(ref first), ref span.Ref(0)))
+            if (Unsafe.AreSame(ref Unsafe.Dec(ref first), ref span.Ref(0)))
             {
                 if (Unsafe.IsAddressLessThan(ref first, ref last))
-                    do last = ref Unsafe.Prev(ref last);
+                    do last = ref Unsafe.Dec(ref last);
                     while (!Less(in last, in pivot) && Unsafe.IsAddressLessThan(ref first, ref last));
             }
             else
             {
-                do last = ref Unsafe.Prev(ref last);
+                do last = ref Unsafe.Dec(ref last);
                 while (!Less(in last, in pivot));
             }
 
@@ -275,7 +275,7 @@ internal abstract partial class PDQ : SortBase
             if (!hasPartitioned)
             {
                 Swap(ref first, ref last);
-                first = ref Unsafe.Next(ref first);
+                first = ref Unsafe.Inc(ref first);
 
                 // The following branchless partitioning is derived from "BlockQuicksort: How Branch
                 // Mispredictions don’t affect Quicksort" by Stefan Edelkamp and Armin Weiss, but
@@ -300,21 +300,21 @@ internal abstract partial class PDQ : SortBase
                     {
                         for (byte i = 0; i < BlockSize;)
                         {
-                            offsetsL[numL] = i++; numL += !Less(in first, in pivot) ? 1 : 0; first = ref Unsafe.Next(ref first);
-                            offsetsL[numL] = i++; numL += !Less(in first, in pivot) ? 1 : 0; first = ref Unsafe.Next(ref first);
-                            offsetsL[numL] = i++; numL += !Less(in first, in pivot) ? 1 : 0; first = ref Unsafe.Next(ref first);
-                            offsetsL[numL] = i++; numL += !Less(in first, in pivot) ? 1 : 0; first = ref Unsafe.Next(ref first);
-                            offsetsL[numL] = i++; numL += !Less(in first, in pivot) ? 1 : 0; first = ref Unsafe.Next(ref first);
-                            offsetsL[numL] = i++; numL += !Less(in first, in pivot) ? 1 : 0; first = ref Unsafe.Next(ref first);
-                            offsetsL[numL] = i++; numL += !Less(in first, in pivot) ? 1 : 0; first = ref Unsafe.Next(ref first);
-                            offsetsL[numL] = i++; numL += !Less(in first, in pivot) ? 1 : 0; first = ref Unsafe.Next(ref first);
+                            offsetsL[numL] = i++; numL += !Less(in first, in pivot) ? 1 : 0; first = ref Unsafe.Inc(ref first);
+                            offsetsL[numL] = i++; numL += !Less(in first, in pivot) ? 1 : 0; first = ref Unsafe.Inc(ref first);
+                            offsetsL[numL] = i++; numL += !Less(in first, in pivot) ? 1 : 0; first = ref Unsafe.Inc(ref first);
+                            offsetsL[numL] = i++; numL += !Less(in first, in pivot) ? 1 : 0; first = ref Unsafe.Inc(ref first);
+                            offsetsL[numL] = i++; numL += !Less(in first, in pivot) ? 1 : 0; first = ref Unsafe.Inc(ref first);
+                            offsetsL[numL] = i++; numL += !Less(in first, in pivot) ? 1 : 0; first = ref Unsafe.Inc(ref first);
+                            offsetsL[numL] = i++; numL += !Less(in first, in pivot) ? 1 : 0; first = ref Unsafe.Inc(ref first);
+                            offsetsL[numL] = i++; numL += !Less(in first, in pivot) ? 1 : 0; first = ref Unsafe.Inc(ref first);
                         }
                     }
                     else
                     {
                         for (byte i = 0; i < leftSplit;)
                         {
-                            offsetsL[numL] = i++; numL += !Less(in first, in pivot) ? 1 : 0; first = ref Unsafe.Next(ref first);
+                            offsetsL[numL] = i++; numL += !Less(in first, in pivot) ? 1 : 0; first = ref Unsafe.Inc(ref first);
                         }
                     }
 
@@ -322,21 +322,21 @@ internal abstract partial class PDQ : SortBase
                     {
                         for (byte i = 0; i < BlockSize;)
                         {
-                            offsetsR[numR] = ++i; last = ref Unsafe.Prev(ref last); numR += Less(in last, in pivot) ? 1 : 0;
-                            offsetsR[numR] = ++i; last = ref Unsafe.Prev(ref last); numR += Less(in last, in pivot) ? 1 : 0;
-                            offsetsR[numR] = ++i; last = ref Unsafe.Prev(ref last); numR += Less(in last, in pivot) ? 1 : 0;
-                            offsetsR[numR] = ++i; last = ref Unsafe.Prev(ref last); numR += Less(in last, in pivot) ? 1 : 0;
-                            offsetsR[numR] = ++i; last = ref Unsafe.Prev(ref last); numR += Less(in last, in pivot) ? 1 : 0;
-                            offsetsR[numR] = ++i; last = ref Unsafe.Prev(ref last); numR += Less(in last, in pivot) ? 1 : 0;
-                            offsetsR[numR] = ++i; last = ref Unsafe.Prev(ref last); numR += Less(in last, in pivot) ? 1 : 0;
-                            offsetsR[numR] = ++i; last = ref Unsafe.Prev(ref last); numR += Less(in last, in pivot) ? 1 : 0;
+                            offsetsR[numR] = ++i; last = ref Unsafe.Dec(ref last); numR += Less(in last, in pivot) ? 1 : 0;
+                            offsetsR[numR] = ++i; last = ref Unsafe.Dec(ref last); numR += Less(in last, in pivot) ? 1 : 0;
+                            offsetsR[numR] = ++i; last = ref Unsafe.Dec(ref last); numR += Less(in last, in pivot) ? 1 : 0;
+                            offsetsR[numR] = ++i; last = ref Unsafe.Dec(ref last); numR += Less(in last, in pivot) ? 1 : 0;
+                            offsetsR[numR] = ++i; last = ref Unsafe.Dec(ref last); numR += Less(in last, in pivot) ? 1 : 0;
+                            offsetsR[numR] = ++i; last = ref Unsafe.Dec(ref last); numR += Less(in last, in pivot) ? 1 : 0;
+                            offsetsR[numR] = ++i; last = ref Unsafe.Dec(ref last); numR += Less(in last, in pivot) ? 1 : 0;
+                            offsetsR[numR] = ++i; last = ref Unsafe.Dec(ref last); numR += Less(in last, in pivot) ? 1 : 0;
                         }
                     }
                     else
                     {
                         for (byte i = 0; i < rightSplit;)
                         {
-                            offsetsR[numR] = ++i; last = ref Unsafe.Prev(ref last); numR += Less(in last, in pivot) ? 1 : 0;
+                            offsetsR[numR] = ++i; last = ref Unsafe.Dec(ref last); numR += Less(in last, in pivot) ? 1 : 0;
                         }
                     }
 
@@ -370,7 +370,7 @@ internal abstract partial class PDQ : SortBase
                     offsetsL = offsetsL.Sub(startL, CacheLineSize);
                     while (numL-- != 0)
                     {
-                        last = ref Unsafe.Prev(ref last);
+                        last = ref Unsafe.Dec(ref last);
                         Swap(ref Unsafe.Add(ref offsetsLBase, offsetsL[numL]), ref last);
                     }
                     first = ref last;
@@ -381,7 +381,7 @@ internal abstract partial class PDQ : SortBase
                     while (numR-- != 0)
                     {
                         Swap(ref Unsafe.Add(ref offsetsRBase, -offsetsR[numR]), ref first);
-                        first = ref Unsafe.Next(ref first);
+                        first = ref Unsafe.Inc(ref first);
                     }
                     last = ref first;
                 }
@@ -390,7 +390,7 @@ internal abstract partial class PDQ : SortBase
             Ensure(!Unsafe.IsAddressGreaterThan(ref first, ref span.Ref(span.Length)));
 
             // Put the pivot in the right place.
-            first = ref Unsafe.Prev(ref first);
+            first = ref Unsafe.Dec(ref first);
             span.Ref(0) = first;
             first = pivot;
 
@@ -415,20 +415,20 @@ internal abstract partial class PDQ : SortBase
 
             // Find the first element greater than or equal than the pivot (the median of 3 guarantees
             // this exists).
-            do first = ref Unsafe.Next(ref first);
+            do first = ref Unsafe.Inc(ref first);
             while (Less(in first, in pivot, comp));
 
             // Find the first element strictly smaller than the pivot. We have to guard this search if
             // there was no element before *first.
-            if (Unsafe.AreSame(ref Unsafe.Prev(ref first), ref span.Ref(0)))
+            if (Unsafe.AreSame(ref Unsafe.Dec(ref first), ref span.Ref(0)))
             {
                 if (Unsafe.IsAddressLessThan(ref first, ref last))
-                    do last = ref Unsafe.Prev(ref last);
+                    do last = ref Unsafe.Dec(ref last);
                     while (!Less(in last, in pivot, comp) && Unsafe.IsAddressLessThan(ref first, ref last));
             }
             else
             {
-                do last = ref Unsafe.Prev(ref last);
+                do last = ref Unsafe.Dec(ref last);
                 while (!Less(in last, in pivot, comp));
             }
 
@@ -442,16 +442,16 @@ internal abstract partial class PDQ : SortBase
             while (Unsafe.IsAddressLessThan(ref first, ref last))
             {
                 Swap(ref first, ref last);
-                do first = ref Unsafe.Next(ref first);
+                do first = ref Unsafe.Inc(ref first);
                 while (Less(in first, in pivot, comp));
-                do last = ref Unsafe.Prev(ref last);
+                do last = ref Unsafe.Dec(ref last);
                 while (!Less(in last, in pivot, comp));
             }
 
             Ensure(!Unsafe.IsAddressGreaterThan(ref first, ref span.Ref(span.Length)));
 
             // Put the pivot in the right place.
-            first = ref Unsafe.Prev(ref first);
+            first = ref Unsafe.Dec(ref first);
             span.Ref(0) = first;
             first = pivot;
 
@@ -469,26 +469,26 @@ internal abstract partial class PDQ : SortBase
             ref T first = ref span.Ref(0);
             ref T last = ref span.Ref(span.Length);
 
-            do last = ref Unsafe.Prev(ref last);
+            do last = ref Unsafe.Dec(ref last);
             while (Less(in pivot, in last, comp));
-            if (Unsafe.AreSame(ref Unsafe.Next(ref last), ref span.Ref(span.Length)))
+            if (Unsafe.AreSame(ref Unsafe.Inc(ref last), ref span.Ref(span.Length)))
             {
                 if (Unsafe.IsAddressLessThan(ref first, ref last))
-                    do first = ref Unsafe.Next(ref first);
+                    do first = ref Unsafe.Inc(ref first);
                     while (!Less(in pivot, in first, comp) && Unsafe.IsAddressLessThan(ref first, ref last));
             }
             else
             {
-                do first = ref Unsafe.Next(ref first);
+                do first = ref Unsafe.Inc(ref first);
                 while (!Less(in pivot, in first, comp));
             }
 
             while (Unsafe.IsAddressLessThan(ref first, ref last))
             {
                 Swap(ref first, ref last);
-                do last = ref Unsafe.Prev(ref last);
+                do last = ref Unsafe.Dec(ref last);
                 while (Less(in pivot, in last, comp));
-                do first = ref Unsafe.Next(ref first);
+                do first = ref Unsafe.Inc(ref first);
                 while (!Less(in pivot, in first, comp));
             }
 

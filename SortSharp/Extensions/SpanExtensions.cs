@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -37,23 +36,23 @@ internal static partial class SpanExtensions
             => (int)Unsafe.ByteOffset(in a, in b) / Unsafe.SizeOf<T>();
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static ref T Next<T>(ref T source)
+        internal static ref T Inc<T>(ref T source)
             => ref Unsafe.Add(ref source, 1);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static ref T Prev<T>(ref T source)
+        internal static ref T Dec<T>(ref T source)
             => ref Unsafe.Subtract(ref source, 1);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static ref readonly T RONext<T>(ref readonly T source)
+        internal static ref readonly T RoInc<T>(ref readonly T source)
             => ref Unsafe.Add(ref Unsafe.AsRef(in source), 1);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static ref readonly T ROPrev<T>(ref readonly T source)
+        internal static ref readonly T RoDec<T>(ref readonly T source)
             => ref Unsafe.Subtract(ref Unsafe.AsRef(in source), 1);
             
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static ref readonly T ROAdd<T>(ref readonly T source, int elementOffset)
+        internal static ref readonly T RoAdd<T>(ref readonly T source, int elementOffset)
             => ref Unsafe.Add(ref Unsafe.AsRef(in source), elementOffset);
     }
 
@@ -135,8 +134,8 @@ internal static partial class SpanExtensions
         while (length-- > 0)
         {
             Swap(ref a, ref b);
-            a = ref Unsafe.Next(ref a);
-            b = ref Unsafe.Next(ref b);
+            a = ref Unsafe.Inc(ref a);
+            b = ref Unsafe.Inc(ref b);
         }
     }
 
@@ -160,24 +159,24 @@ internal static partial class SpanExtensions
         {
             for (loop = right / 2; loop != 0; loop--)
             {
-                b = ref Unsafe.Prev(ref b);
+                b = ref Unsafe.Dec(ref b);
                 swap = b;
                 b = a;
                 a = c;
-                a = ref Unsafe.Next(ref a);
-                d = ref Unsafe.Prev(ref d);
+                a = ref Unsafe.Inc(ref a);
+                d = ref Unsafe.Dec(ref d);
                 c = d;
-                c = ref Unsafe.Next(ref c);
+                c = ref Unsafe.Inc(ref c);
                 d = swap;
             }
             for (loop = Unsafe.Offset(ref a, ref b) / 2; loop != 0; loop--)
             {
-                b = ref Unsafe.Prev(ref b);
+                b = ref Unsafe.Dec(ref b);
                 swap = b;
                 b = a;
-                d = ref Unsafe.Prev(ref d);
+                d = ref Unsafe.Dec(ref d);
                 a = d;
-                a = ref Unsafe.Next(ref a);
+                a = ref Unsafe.Inc(ref a);
                 d = swap;
             }
         }
@@ -185,25 +184,25 @@ internal static partial class SpanExtensions
         {
             for (loop = left / 2; loop != 0; loop--)
             {
-                b = ref Unsafe.Prev(ref b);
+                b = ref Unsafe.Dec(ref b);
                 swap = b;
                 b = a;
                 a = c;
-                a = ref Unsafe.Next(ref a);
-                d = ref Unsafe.Prev(ref d);
+                a = ref Unsafe.Inc(ref a);
+                d = ref Unsafe.Dec(ref d);
                 c = d;
-                c = ref Unsafe.Next(ref c);
+                c = ref Unsafe.Inc(ref c);
                 d = swap;
             }
             for (loop = Unsafe.Offset(ref c, ref d) / 2; loop != 0; loop--)
             {
                 swap = c;
-                d = ref Unsafe.Prev(ref d);
+                d = ref Unsafe.Dec(ref d);
                 c = d;
-                c = ref Unsafe.Next(ref c);
+                c = ref Unsafe.Inc(ref c);
                 d = a;
                 a = swap;
-                a = ref Unsafe.Next(ref a);
+                a = ref Unsafe.Inc(ref a);
             }
         }
         else
@@ -212,9 +211,9 @@ internal static partial class SpanExtensions
             {
                 swap = a;
                 a = b;
-                a = ref Unsafe.Next(ref a);
+                a = ref Unsafe.Inc(ref a);
                 b = swap;
-                b = ref Unsafe.Next(ref b);
+                b = ref Unsafe.Inc(ref b);
             }
             return; // !!!
         }
@@ -222,9 +221,9 @@ internal static partial class SpanExtensions
         for (loop = Unsafe.Offset(ref a, ref d) / 2; loop != 0; loop--)
         {
             swap = a;
-            d = ref Unsafe.Prev(ref d);
+            d = ref Unsafe.Dec(ref d);
             a = d;
-            a = ref Unsafe.Next(ref a);
+            a = ref Unsafe.Inc(ref a);
             d = swap;
         }
 

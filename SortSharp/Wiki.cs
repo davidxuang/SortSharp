@@ -247,15 +247,15 @@ internal abstract partial class Wiki : SortBase
                     if (!Less(in indxB, in indxA, comp))
                     {
                         insert = indxA;
-                        indxA = ref Unsafe.Next(ref indxA);
-                        insert = ref Unsafe.Next(ref insert);
+                        indxA = ref Unsafe.Inc(ref indxA);
+                        insert = ref Unsafe.Inc(ref insert);
                         if (Unsafe.AreSame(ref indxA, ref lastA)) break;
                     }
                     else
                     {
                         insert = indxB;
-                        indxB = ref Unsafe.Next(ref indxB);
-                        insert = ref Unsafe.Next(ref insert);
+                        indxB = ref Unsafe.Inc(ref indxB);
+                        insert = ref Unsafe.Inc(ref insert);
                         if (Unsafe.AreSame(ref indxB, ref lastB)) break;
                     }
                 }
@@ -290,15 +290,15 @@ internal abstract partial class Wiki : SortBase
                     if (!Less(in indxB, in indxA, comp))
                     {
                         Swap(ref insert, ref indxA);
-                        indxA = ref Unsafe.Next(ref indxA);
-                        insert = ref Unsafe.Next(ref insert);
+                        indxA = ref Unsafe.Inc(ref indxA);
+                        insert = ref Unsafe.Inc(ref insert);
                         if (Unsafe.AreSame(ref indxA, ref lastA)) break;
                     }
                     else
                     {
                         Swap(ref insert, ref indxB);
-                        indxB = ref Unsafe.Next(ref indxB);
-                        insert = ref Unsafe.Next(ref insert);
+                        indxB = ref Unsafe.Inc(ref indxB);
+                        insert = ref Unsafe.Inc(ref insert);
                         if (Unsafe.AreSame(ref indxB, ref lastB)) break;
                     }
                 }
@@ -893,7 +893,7 @@ internal abstract partial class Wiki : SortBase
                                 ref T indexA = ref span.Ref(buffer1.Start);
                                 for (index = lastA.End;
                                     index < blockA.End;
-                                    indexA = ref Unsafe.Next(ref indexA), index += blockSize)
+                                    indexA = ref Unsafe.Inc(ref indexA), index += blockSize)
                                 {
                                     Swap(ref indexA, ref span.Ref(index));
                                 }
@@ -935,7 +935,7 @@ internal abstract partial class Wiki : SortBase
 
                                             // swap the first item of the previous A block back with its original value, which is stored in buffer1
                                             Swap(ref span.Ref(blockA.Start), ref indexA);
-                                            indexA = ref Unsafe.Next(ref indexA);
+                                            indexA = ref Unsafe.Inc(ref indexA);
 
                                             // locally merge the previous A block with the B values that follow it
                                             // if lastA fits into the external cache we'll use that (with MergeExternal),

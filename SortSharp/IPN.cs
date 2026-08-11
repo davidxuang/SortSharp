@@ -232,7 +232,7 @@ internal abstract partial class IPN : SortBase
             Debug.Assert(offset > 0);
 
             ref T tail = ref Unsafe.Add(ref head, offset);
-            ref T sift = ref Unsafe.Prev(ref tail);
+            ref T sift = ref Unsafe.Dec(ref tail);
             if (!Less(in tail, in sift, comp))
                 return;
 
@@ -245,7 +245,7 @@ internal abstract partial class IPN : SortBase
                     tail = ref sift;
                     if (Unsafe.AreSame(in sift, in head))
                         break;
-                    sift = ref Unsafe.Prev(ref sift);
+                    sift = ref Unsafe.Dec(ref sift);
                 }
                 while (Less(in tmp, in sift, comp));
             }
@@ -262,12 +262,12 @@ internal abstract partial class IPN : SortBase
             // regardless of type T's size. Further this only does 5 instead of 6
             // comparisons compared to a stable transposition 4 element sorting-network,
             // and always copies each element exactly once.
-            bool c1 = Less(in Unsafe.ROAdd(in src, 1), in src, comp);
-            bool c2 = Less(in Unsafe.ROAdd(in src, 3), in Unsafe.ROAdd(in src, 2), comp);
-            ref readonly T a = ref Unsafe.ROAdd(in src, c1 ? 1 : 0);
-            ref readonly T b = ref Unsafe.ROAdd(in src, !c1 ? 1 : 0);
-            ref readonly T c = ref Unsafe.ROAdd(in src, 2 + (c2 ? 1 : 0));
-            ref readonly T d = ref Unsafe.ROAdd(in src, 2 + (!c2 ? 1 : 0));
+            bool c1 = Less(in Unsafe.RoAdd(in src, 1), in src, comp);
+            bool c2 = Less(in Unsafe.RoAdd(in src, 3), in Unsafe.RoAdd(in src, 2), comp);
+            ref readonly T a = ref Unsafe.RoAdd(in src, c1 ? 1 : 0);
+            ref readonly T b = ref Unsafe.RoAdd(in src, !c1 ? 1 : 0);
+            ref readonly T c = ref Unsafe.RoAdd(in src, 2 + (c2 ? 1 : 0));
+            ref readonly T d = ref Unsafe.RoAdd(in src, 2 + (!c2 ? 1 : 0));
 
             // Compare (a, c) and (b, d) to identify max/min. We're left with two
             // unknown elements, but because we are a stable sort we must know which
@@ -299,7 +299,7 @@ internal abstract partial class IPN : SortBase
         static void Sort8(ref readonly T src, ref T dst, ref T scratch, Comparison<T> comp)
         {
             Sort4(in src, ref scratch, comp);
-            Sort4(in Unsafe.ROAdd(in src, 4), ref Unsafe.Add(ref scratch, 4), comp);
+            Sort4(in Unsafe.RoAdd(in src, 4), ref Unsafe.Add(ref scratch, 4), comp);
             MergeBidirectional(in scratch, ref dst, 8, comp);
         }
 
@@ -343,10 +343,10 @@ internal abstract partial class IPN : SortBase
             int len2 = Math.DivRem(length, 2, out int rem2);
             //Debug.Assert(split == len2 || split + len2 == length);
             ref readonly T left = ref src;
-            ref readonly T right = ref Unsafe.ROAdd(in src, len2); //split
+            ref readonly T right = ref Unsafe.RoAdd(in src, len2); //split
 
-            ref readonly T leftZ = ref Unsafe.ROPrev(in right);
-            ref readonly T rightZ = ref Unsafe.ROAdd(in src, length - 1);
+            ref readonly T leftZ = ref Unsafe.RoDec(in right);
+            ref readonly T rightZ = ref Unsafe.RoAdd(in src, length - 1);
             ref T dstZ = ref Unsafe.Add(ref dst, length - 1);
 
             for (int i = 0; i < len2; i++)
@@ -354,27 +354,27 @@ internal abstract partial class IPN : SortBase
                 // merge_up
                 bool l = !Less(in right, in left, comp);
                 dst = l ? left : right;
-                left = ref Unsafe.ROAdd(in left, l ? 1 : 0);
-                right = ref Unsafe.ROAdd(in right, l ? 0 : 1);
+                left = ref Unsafe.RoAdd(in left, l ? 1 : 0);
+                right = ref Unsafe.RoAdd(in right, l ? 0 : 1);
                 dst = ref Unsafe.Add(ref dst, 1);
                 // merge_down
                 l = !Less(in rightZ, in leftZ, comp);
                 dstZ = l ? rightZ : leftZ;
-                leftZ = ref Unsafe.ROAdd(in leftZ, l ? 0 : -1);
-                rightZ = ref Unsafe.ROAdd(in rightZ, l ? -1 : 0);
+                leftZ = ref Unsafe.RoAdd(in leftZ, l ? 0 : -1);
+                rightZ = ref Unsafe.RoAdd(in rightZ, l ? -1 : 0);
                 dstZ = ref Unsafe.Add(ref dstZ, -1);
             }
 
-            leftZ = ref Unsafe.RONext(in leftZ);
-            rightZ = ref Unsafe.RONext(in rightZ);
+            leftZ = ref Unsafe.RoInc(in leftZ);
+            rightZ = ref Unsafe.RoInc(in rightZ);
 
             // Odd length, so one element is left unconsumed in the input.
             if (rem2 != 0)
             {
                 bool l = Unsafe.IsAddressLessThan(in left, in leftZ);
                 dst = l ? left : right;
-                left = ref Unsafe.ROAdd(in left, l ? 1 : 0);
-                right = ref Unsafe.ROAdd(in right, l ? 0 : 1);
+                left = ref Unsafe.RoAdd(in left, l ? 1 : 0);
+                right = ref Unsafe.RoAdd(in right, l ? 0 : 1);
             }
 
             // We now should have consumed the full input exactly once. This can
@@ -585,9 +585,9 @@ internal abstract partial class IPN : SortBase
             if (n * 8 >= PsuedoMedianRecThreshold)
             {
                 var n8 = n / 8;
-                a = ref Median3Rec(in a, in Unsafe.ROAdd(in a, n8 * 4), in Unsafe.ROAdd(in a, n8 * 7), n8, comp);
-                b = ref Median3Rec(in b, in Unsafe.ROAdd(in b, n8 * 4), in Unsafe.ROAdd(in b, n8 * 7), n8, comp);
-                c = ref Median3Rec(in c, in Unsafe.ROAdd(in c, n8 * 4), in Unsafe.ROAdd(in c, n8 * 7), n8, comp);
+                a = ref Median3Rec(in a, in Unsafe.RoAdd(in a, n8 * 4), in Unsafe.RoAdd(in a, n8 * 7), n8, comp);
+                b = ref Median3Rec(in b, in Unsafe.RoAdd(in b, n8 * 4), in Unsafe.RoAdd(in b, n8 * 7), n8, comp);
+                c = ref Median3Rec(in c, in Unsafe.RoAdd(in c, n8 * 4), in Unsafe.RoAdd(in c, n8 * 7), n8, comp);
             }
             return ref Median3(in a, in b, in c, comp);
         }
@@ -737,10 +737,10 @@ internal abstract partial class IPN : SortBase
                 {
                     // Find the first element greater than the pivot.
                     while (Unsafe.IsAddressLessThan(in left, in right) && Less(in left, in pivot, comp))
-                        left = ref Unsafe.Next(ref left);
+                        left = ref Unsafe.Inc(ref left);
 
                     // Find the last element equal to the pivot.
-                    do right = ref Unsafe.Prev(ref right);
+                    do right = ref Unsafe.Dec(ref right);
                     while (Unsafe.IsAddressLessThan(in left, in right) && !Less(in right, in pivot, comp));
 
                     if (!Unsafe.IsAddressLessThan(in left, in right))
@@ -759,7 +759,7 @@ internal abstract partial class IPN : SortBase
                         gap = ref right;
                     }
                     left = right;
-                    left = ref Unsafe.Next(ref left);
+                    left = ref Unsafe.Inc(ref left);
                 }
 
                 return span.Offset(in left);
@@ -800,7 +800,7 @@ internal abstract partial class IPN : SortBase
                     left = right;
                     gap = ref right;
                     left = ref Unsafe.Add(ref left, less ? 1 : 0);
-                    right = ref Unsafe.Next(ref right);
+                    right = ref Unsafe.Inc(ref right);
                 }
 
                 {
