@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using SortSharp.Extensions;
 
 namespace SortSharp;
 
@@ -14,7 +15,10 @@ internal static class Router<T>
 
     static Router()
     {
-        _isFloatingPointIeee = typeof(T) == typeof(float) || typeof(T) == typeof(double) || typeof(T) == typeof(Half)
+        _isFloatingPointIeee = typeof(T) == typeof(float) || typeof(T) == typeof(double)
+#if NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER || NETCOREAPP2_0_OR_GREATER
+            || typeof(T) == typeof(Half)
+#endif
 #if NET7_0_OR_GREATER
             || (!RuntimeHelpers.IsReferenceOrContainsReferences<T>() && typeof(T).GetInterface(typeof(IFloatingPointIeee754<>).FullName!) is not null)
 #endif
@@ -38,7 +42,9 @@ internal static class Router<T>
 #endif
         if (typeof(T) == typeof(float)) { _dispatcher = (IDispatcher<T>)(object)new FloatingPointDispatcher<float>(); return; }
         if (typeof(T) == typeof(double)) { _dispatcher = (IDispatcher<T>)(object)new FloatingPointDispatcher<double>(); return; }
+#if NETSTANDARD2_0_OR_GREATER && NETCOREAPP2_0_OR_GREATER
         if (typeof(T) == typeof(Half)) { _dispatcher = (IDispatcher<T>)(object)new FloatingPointDispatcher<Half>(); return; }
+#endif
 #if !NETSTANDARD2_1_OR_GREATER && !NETCOREAPP3_0_OR_GREATER
         try
         {

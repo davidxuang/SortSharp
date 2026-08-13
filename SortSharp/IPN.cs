@@ -59,7 +59,7 @@ public static partial class SpanExtensions
     public static void IPNSort<K, V>(this Span<K> keys, Span<V> items)
         where K : unmanaged, INumber<K>
     {
-        ArgumentOutOfRangeException.ThrowIf(keys.Length != items.Length, nameof(items));
+        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
 
         if (keys.Length <= 1)
             return;
@@ -77,7 +77,7 @@ public static partial class SpanExtensions
     public static void IPNSort<K, V>(this Span<K> keys, Span<V> items, Comparison<K> compare)
     {
         ArgumentNullException.ThrowIfNull(compare, nameof(compare));
-        ArgumentOutOfRangeException.ThrowIf(keys.Length != items.Length, nameof(items));
+        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
 
         if (keys.Length <= 1)
             return;
@@ -87,7 +87,7 @@ public static partial class SpanExtensions
     public static void IPNSort<K, V, TComparer>(this Span<K> keys, Span<V> items, TComparer comparer)
         where TComparer : IComparer<K>?
     {
-        ArgumentOutOfRangeException.ThrowIf(keys.Length != items.Length, nameof(items));
+        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
 
         if (keys.Length <= 1)
             return;

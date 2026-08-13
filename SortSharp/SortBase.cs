@@ -45,16 +45,23 @@ internal abstract partial class SortBase
     internal static int MoveNansToFront<T>(Span<T> span)
         where T : unmanaged
     {
-        Debug.Assert(typeof(T) == typeof(double) || typeof(T) == typeof(float) || typeof(T) == typeof(Half));
+        Debug.Assert(typeof(T) == typeof(double) || typeof(T) == typeof(float)
+#if NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER || NETCOREAPP2_0_OR_GREATER
+            || typeof(T) == typeof(Half)
+#endif
+            );
 
         ref T first = ref span.Ref(0);
         ref T swap = ref span.Ref(0);
         ref T last = ref span.Ref(span.Length);
         for (; !Unsafe.AreSame(ref first, ref last); first = ref Unsafe.Add(ref first, 1))
         {
-            if ((typeof(T) == typeof(double) && double.IsNaN((double)(object)first)) ||
-                (typeof(T) == typeof(float) && float.IsNaN((float)(object)first)) ||
-                (typeof(T) == typeof(Half) && Half.IsNaN((Half)(object)first)))
+            if ((typeof(T) == typeof(double) && double.IsNaN((double)(object)first))
+                || (typeof(T) == typeof(float) && float.IsNaN((float)(object)first))
+#if NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER || NETCOREAPP2_0_OR_GREATER
+                || (typeof(T) == typeof(Half) && Half.IsNaN((Half)(object)first))
+#endif
+                )
             {
                 Swap(ref first, ref swap);
                 swap = ref Unsafe.Add(ref swap, 1);
@@ -108,13 +115,15 @@ internal abstract partial class SortBase
             if (typeof(T) == typeof(nint)) return (nint)(object)a < (nint)(object)b;
             if (typeof(T) == typeof(float)) return (float)(object)a < (float)(object)b;
             if (typeof(T) == typeof(double)) return (double)(object)a < (double)(object)b;
+#if NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER || NETCOREAPP2_0_OR_GREATER
             if (typeof(T) == typeof(Half)) return (Half)(object)a < (Half)(object)b;
+#endif
             return a.CompareTo(b) < 0;
         }
 #endif
-    }
+        }
 
-    internal abstract partial class Cmp<T>
+        internal abstract partial class Cmp<T>
         where T : IComparable<T>
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -132,7 +141,9 @@ internal abstract partial class SortBase
             if (typeof(T) == typeof(nint)) return (nint)(object)a < (nint)(object)b;
             if (typeof(T) == typeof(float)) return (float)(object)a < (float)(object)b || (!((float)(object)a >= (float)(object)b) && !float.IsNaN((float)(object)b));
             if (typeof(T) == typeof(double)) return (double)(object)a < (double)(object)b || (!((double)(object)a >= (double)(object)b) && !double.IsNaN((double)(object)b));
+#if NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER || NETCOREAPP2_0_OR_GREATER
             if (typeof(T) == typeof(Half)) return (Half)(object)a < (Half)(object)b || (!((Half)(object)a >= (Half)(object)b) && !Half.IsNaN((Half)(object)b));
+#endif
             return a is not null
                 ? a.CompareTo(b) < 0
                 : b is not null;

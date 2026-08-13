@@ -57,7 +57,7 @@ public static partial class SpanExtensions
     public static void PDQSort<K, V>(this Span<K> keys, Span<V> items)
         where K : unmanaged, INumber<K>
     {
-        ArgumentOutOfRangeException.ThrowIf(keys.Length != items.Length, nameof(items));
+        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
 
         if (keys.Length <= 1)
             return;
@@ -75,7 +75,7 @@ public static partial class SpanExtensions
     public static void PDQSort<K, V>(this Span<K> keys, Span<V> items, Comparison<K> compare)
     {
         ArgumentNullException.ThrowIfNull(compare, nameof(compare));
-        ArgumentOutOfRangeException.ThrowIf(keys.Length != items.Length, nameof(items));
+        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
 
         if (keys.Length <= 1)
             return;
@@ -85,7 +85,7 @@ public static partial class SpanExtensions
     public static void PDQSort<K, V, TComparer>(this Span<K> keys, Span<V> items, TComparer comparer)
         where TComparer : IComparer<K>?
     {
-        ArgumentOutOfRangeException.ThrowIf(keys.Length != items.Length, nameof(items));
+        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
 
         if (keys.Length <= 1)
             return;
@@ -608,7 +608,7 @@ internal abstract partial class PDQ : SortBase
 
         [Template(nameof(T), nameof(comp), nameof(span))]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void Sort(Span<T> span, Comparison<T> comp)
+        public static void Sort(Span<T> span, Comparison<T> comp)
         {
             SortLoop(span, comp, BitOperations.Log2((uint)span.Length));
         }

@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net461;net462;netstandard2.0;netstandard2.1;net7.0;net8.0</TargetFrameworks>
+    <TargetFrameworks>netstandard1.1;netstandard2.0;netstandard2.1;net45;net461;net462;net7.0;net8.0</TargetFrameworks>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -14,36 +14,54 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <CheckNotRecommendedTargetFramework>false</CheckNotRecommendedTargetFramework>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
-  <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net461'))">
+  <PropertyGroup>
     <SystemMemoryVersion>4.5.*</SystemMemoryVersion>
+    <SystemUnsafeVersion>5.0.*</SystemUnsafeVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'netstandard2.0'))">
     <SystemUnsafeVersion>6.0.*</SystemUnsafeVersion>
   </PropertyGroup>
 
-  <PropertyGroup Condition="$([MSBuild]::GetTargetFrameworkIdentifier('$(TargetFramework)')) != '.NETFramework' Or $([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net462'))">
+  <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'netstandard2.0')) And '$(TargetFramework)' != 'net461'">
     <SystemMemoryVersion>4.6.*</SystemMemoryVersion>
     <SystemUnsafeVersion>6.1.*</SystemUnsafeVersion>
   </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard1.1'">
+    <PolySharpUseEmbeddedAttributeForGeneratedTypes>false</PolySharpUseEmbeddedAttributeForGeneratedTypes>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net462'">
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+  </PropertyGroup>
+
+  <ItemGroup Condition="!$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">
+    <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="$(SystemUnsafeVersion)" />
+  </ItemGroup>
 
   <ItemGroup Condition="!$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net5.0'))">
     <PackageReference Include="PolySharp" Version="1.16.*" PrivateAssets="All">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Ultz.Bcl.Half" Version="1.0.*" />
-  </ItemGroup>
-
-  <ItemGroup Condition="!$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'netcoreapp3.0'))">
-    <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="$(SystemUnsafeVersion)" />
+    <PackageReference Include="Ultz.Bcl.Half" Version="1.0.*" Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'netstandard2.0'))" />
   </ItemGroup>
 
   <ItemGroup Condition="!$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'netstandard2.1'))">
     <PackageReference Include="Nullable" Version="1.3.*" />
     <PackageReference Include="System.Memory" Version="$(SystemMemoryVersion)" />
+    <!--<PackageReference Include="System.Numerics.Vectors" Version="$(SystemMemoryVersion)" />-->
+  </ItemGroup>
+
+  <ItemGroup Condition="!$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'netstandard2.0'))">
+    <PackageReference Include="System.ValueTuple" Version="$(SystemMemoryVersion)" />
   </ItemGroup>
 
   <ItemGroup>
@@ -52,7 +70,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SortSharp.SourceGeneration\SortSharp.SourceGeneration.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\SortSharp.SourceGeneration\SortSharp.SourceGeneration.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" SkipGetTargetFrameworkProperties="true" UndefineProperties="TargetFramework" />
     <None Include="..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 

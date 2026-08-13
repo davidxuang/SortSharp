@@ -56,7 +56,7 @@ public static partial class SpanExtensions
 
     public static void WikiSort<K, V>(this Span<K> keys, Span<V> items, Comparison<K> compare, MemoryPolicy policy = MemoryPolicy.Fixed)
     {
-        ArgumentOutOfRangeException.ThrowIf(keys.Length != items.Length, nameof(items));
+        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
         ArgumentNullException.ThrowIfNull(compare, nameof(compare));
 
         if (keys.Length <= 1)
@@ -67,7 +67,7 @@ public static partial class SpanExtensions
     public static void WikiSort<K, V, TComparer>(this Span<K> keys, Span<V> items, TComparer comparer, MemoryPolicy policy = MemoryPolicy.Fixed)
         where TComparer : IComparer<K>?
     {
-        ArgumentOutOfRangeException.ThrowIf(keys.Length != items.Length, nameof(items));
+        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
 
         if (keys.Length <= 1)
             return;
@@ -368,7 +368,7 @@ internal abstract partial class Wiki : SortBase
 
         // bottom-up merge sort combined with an in-place merge algorithm for O(1) memory use
         [Template(nameof(T), nameof(comp), nameof(span))]
-        internal static unsafe void Sort(Span<T> span, Comparison<T> comp, MemoryPolicy policy)
+        public static unsafe void Sort(Span<T> span, Comparison<T> comp, MemoryPolicy policy)
         {
             int size = span.Length;
 
