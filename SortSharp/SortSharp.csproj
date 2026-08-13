@@ -27,12 +27,17 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'netstandard2.0'))">
+    <DefineConstants>$(DefineConstants);NETSTANDARD2_0_COMPAT</DefineConstants>
     <SystemUnsafeVersion>6.0.*</SystemUnsafeVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'netstandard2.0')) And '$(TargetFramework)' != 'net461'">
     <SystemMemoryVersion>4.6.*</SystemMemoryVersion>
     <SystemUnsafeVersion>6.1.*</SystemUnsafeVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'netstandard2.1'))">
+    <DefineConstants>$(DefineConstants);NETSTANDARD2_1_COMPAT</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard1.1'">

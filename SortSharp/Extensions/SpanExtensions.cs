@@ -91,7 +91,7 @@ internal static partial class SpanExtensions
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Span<T> Sub<T>(this Span<T> span, Range range)
-#if DEBUG || !(NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1_OR_GREATER)
+#if DEBUG || !NETSTANDARD2_1_COMPAT
         => span.Slice(range.Start, range.Length);
 #else
         => MemoryMarshal.CreateSpan(ref span.Ref(range.Start), range.Length);
@@ -99,7 +99,7 @@ internal static partial class SpanExtensions
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static ReadOnlySpan<T> Sub<T>(this ReadOnlySpan<T> span, Range range)
-#if DEBUG || !(NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1_OR_GREATER)
+#if DEBUG || !NETSTANDARD2_1_COMPAT
         => span.Slice(range.Start, range.Length);
 #else
         => MemoryMarshal.CreateReadOnlySpan(in span.Ref(range.Start), range.Length);
@@ -107,7 +107,7 @@ internal static partial class SpanExtensions
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Span<T> Sub<T>(this Span<T> span, int start, int end)
-#if DEBUG || !(NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1_OR_GREATER)
+#if DEBUG || !NETSTANDARD2_1_COMPAT
         => span.Slice(start, end - start);
 #else
         => MemoryMarshal.CreateSpan(ref span.Ref(start), end - start);
@@ -115,7 +115,7 @@ internal static partial class SpanExtensions
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static ReadOnlySpan<T> Sub<T>(this ReadOnlySpan<T> span, int start, int end)
-#if DEBUG || !(NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1_OR_GREATER)
+#if DEBUG || !NETSTANDARD2_1_COMPAT
         => span.Slice(start, end - start);
 #else
         => MemoryMarshal.CreateReadOnlySpan(in span.Ref(start), end - start);

@@ -263,7 +263,7 @@ internal abstract partial class Wiki : SortBase
 
             // copy the remainder of A into the final array
             int d = Unsafe.Offset(in indxA, in lastA), k = span.Offset(in insert);
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1_OR_GREATER
+#if NETSTANDARD2_1_COMPAT
             MemoryMarshal.CreateSpan(ref indxA, d).CopyTo(span.Sub(k, span.Length));
 #else
             int i = cache.Offset(in indxA);

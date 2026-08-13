@@ -46,7 +46,7 @@ internal abstract partial class SortBase
         where T : unmanaged
     {
         Debug.Assert(typeof(T) == typeof(double) || typeof(T) == typeof(float)
-#if NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER || NETCOREAPP2_0_OR_GREATER
+#if NETSTANDARD2_0_COMPAT
             || typeof(T) == typeof(Half)
 #endif
             );
@@ -58,7 +58,7 @@ internal abstract partial class SortBase
         {
             if ((typeof(T) == typeof(double) && double.IsNaN((double)(object)first))
                 || (typeof(T) == typeof(float) && float.IsNaN((float)(object)first))
-#if NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER || NETCOREAPP2_0_OR_GREATER
+#if NETSTANDARD2_0_COMPAT
                 || (typeof(T) == typeof(Half) && Half.IsNaN((Half)(object)first))
 #endif
                 )
@@ -115,7 +115,7 @@ internal abstract partial class SortBase
             if (typeof(T) == typeof(nint)) return (nint)(object)a < (nint)(object)b;
             if (typeof(T) == typeof(float)) return (float)(object)a < (float)(object)b;
             if (typeof(T) == typeof(double)) return (double)(object)a < (double)(object)b;
-#if NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER || NETCOREAPP2_0_OR_GREATER
+#if NETSTANDARD2_0_COMPAT
             if (typeof(T) == typeof(Half)) return (Half)(object)a < (Half)(object)b;
 #endif
             return a.CompareTo(b) < 0;
@@ -141,7 +141,7 @@ internal abstract partial class SortBase
             if (typeof(T) == typeof(nint)) return (nint)(object)a < (nint)(object)b;
             if (typeof(T) == typeof(float)) return (float)(object)a < (float)(object)b || (!((float)(object)a >= (float)(object)b) && !float.IsNaN((float)(object)b));
             if (typeof(T) == typeof(double)) return (double)(object)a < (double)(object)b || (!((double)(object)a >= (double)(object)b) && !double.IsNaN((double)(object)b));
-#if NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER || NETCOREAPP2_0_OR_GREATER
+#if NETSTANDARD2_0_COMPAT
             if (typeof(T) == typeof(Half)) return (Half)(object)a < (Half)(object)b || (!((Half)(object)a >= (Half)(object)b) && !Half.IsNaN((Half)(object)b));
 #endif
             return a is not null

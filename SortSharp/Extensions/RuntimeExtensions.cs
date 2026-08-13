@@ -46,7 +46,7 @@ internal static class RuntimeExtensions
     }
 #endif
 
-#if !NETSTANDARD2_1_OR_GREATER && !NETCOREAPP2_1_OR_GREATER
+#if !NETSTANDARD2_1_COMPAT
     extension(RuntimeHelpers)
     {
         internal static bool IsReferenceOrContainsReferences<T>()
