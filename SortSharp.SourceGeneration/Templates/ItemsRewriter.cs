@@ -8,7 +8,6 @@ namespace SortSharp.SourceGeneration.Templates;
 internal class ItemsRewriter(
     IDictionary<string, CallSiteBehaviors> behaviors,
     string generic,
-    string? compare,
     IEnumerable<(string, string)> k,
     IEnumerable<(string, string)> v) : CSharpSyntaxRewriter
 {
@@ -22,16 +21,14 @@ internal class ItemsRewriter(
     public static ItemsRewriter CreateForItems(
         IDictionary<string, CallSiteBehaviors> behaviors,
         string generic,
-        string? compare,
         IEnumerable<string> names)
-        => new(behaviors, generic, compare, [], names.Select(Mangling));
+        => new(behaviors, generic, [], names.Select(Mangling));
 
     public static ItemsRewriter CreateForSpans(
         IDictionary<string, CallSiteBehaviors> behaviors,
         string generic,
-        string? compare,
         IEnumerable<string> names)
-        => new(behaviors, generic, compare, [(names.First(), "keys")], 
+        => new(behaviors, generic, [(names.First(), "keys")], 
             [("keys", "items"), ..names.Skip(1).Select(Mangling)]);
 
     public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)

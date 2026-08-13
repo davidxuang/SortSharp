@@ -4,11 +4,74 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using SortSharp.Extensions;
+using SortSharp.Compat;
 using SortSharp.SourceGeneration;
-using static SortSharp.Extensions.SpanExtensions;
+using static SortSharp.SpanExtensions;
 
 namespace SortSharp;
+
+public static partial class Extensions
+{
+#if NET7_0_OR_GREATER
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int LowerBound<T>(this ReadOnlySpan<T> span, in T value)
+        where T : unmanaged, IComparisonOperators<T, T, bool>
+        => SortBase.Op<T>.LowerBound(span, value);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int UpperBound<T>(this ReadOnlySpan<T> span, in T value)
+        where T : unmanaged, IComparisonOperators<T, T, bool>
+        => SortBase.Op<T>.UpperBound(span, value);
+#endif
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int LowerBound<T>(this ReadOnlySpan<T> span, in T value, IComparer<T>? comparer = null)
+        => LowerBound(span, value, comparer);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int UpperBound<T>(this ReadOnlySpan<T> span, in T value, IComparer<T>? comparer = null)
+        => UpperBound(span, value, comparer);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int LowerBound<T>(this ReadOnlySpan<T> span, in T value, Comparison<T> compare)
+        => SortBase.Fn<T>.LowerBound(span, value, compare);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int UpperBound<T>(this ReadOnlySpan<T> span, in T value, Comparison<T> compare)
+        => SortBase.Fn<T>.UpperBound(span, value, compare);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int LowerBound<T, TComparer>(this ReadOnlySpan<T> span, in T value, TComparer comparer)
+        where TComparer : IComparer<T>?
+    {
+        if (span.Length <= 1)
+            return 0;
+        else if (typeof(TComparer).IsValueType)
+#pragma warning disable CS8631
+            return SortBase.Cmp<T, TComparer>.LowerBound(span, value, comparer);
+#pragma warning restore CS8631
+        else if (comparer is null || comparer as IComparer<T> == Comparer<T>.Default)
+            return Router<T>.To.LowerBound(span, value);
+        else
+            return SortBase.Cmp<T, IComparer<T>>.LowerBound(span, value, comparer);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int UpperBound<T, TComparer>(this ReadOnlySpan<T> span, in T value, TComparer comparer)
+        where TComparer : IComparer<T>?
+    {
+        if (span.Length <= 1)
+            return 0;
+        else if (typeof(TComparer).IsValueType)
+#pragma warning disable CS8631
+            return SortBase.Cmp<T, TComparer>.UpperBound(span, value, comparer);
+#pragma warning restore CS8631
+        else if (comparer is null || comparer as IComparer<T> == Comparer<T>.Default)
+            return Router<T>.To.UpperBound(span, value);
+        else
+            return SortBase.Cmp<T, IComparer<T>>.UpperBound(span, value, comparer);
+    }
+}
 
 internal abstract partial class SortBase
 {
@@ -76,6 +139,17 @@ internal abstract partial class SortBase
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected static bool Less(ref readonly T a, ref readonly T b, Comparison<T> comp)
             => comp(a, b) < 0;
+
+        [Template(nameof(T), nameof(comp), nameof(a), nameof(b),
+            Switch = TemplateVariants.IComparable | TemplateVariants.IComparisonOperators)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected static void Sort2U(ref T a, ref T b, Comparison<T> comp)
+        {
+            if (Less(in b, in a, comp))
+            {
+                Swap(ref a, ref b);
+            }
+        }
     }
 
     /// <summary>
@@ -121,9 +195,20 @@ internal abstract partial class SortBase
             return a.CompareTo(b) < 0;
         }
 #endif
-        }
 
-        internal abstract partial class Cmp<T>
+        [Template(nameof(T), null, nameof(a), nameof(b))]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected static void Sort2U(ref T a, ref T b)
+        {
+            T x = a;
+            T y = b;
+            bool m = Less(in y, in x);
+            a = m ? y : x;
+            b = m ? x : y;
+        }
+    }
+
+    internal abstract partial class Cmp<T>
         where T : IComparable<T>
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -148,6 +233,17 @@ internal abstract partial class SortBase
                 ? a.CompareTo(b) < 0
                 : b is not null;
         }
+
+        [Template(nameof(T), null, nameof(a), nameof(b))]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected static void Sort2U(ref T a, ref T b)
+        {
+            T x = a;
+            T y = b;
+            bool m = Less(in y, in x);
+            a = m ? y : x;
+            b = m ? x : y;
+        }
     }
 
     internal abstract partial class Cmp<T, C>
@@ -160,8 +256,18 @@ internal abstract partial class SortBase
 
     internal abstract partial class Fn<T>
     {
+        // Sorts the elements *a, *b and *c using comparison function comp.
+        [Template(nameof(T), nameof(comp), nameof(a), nameof(b), nameof(c))]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected static void Sort3U(ref T a, ref T b, ref T c, Comparison<T> comp)
+        {
+            Sort2U(ref a, ref b, comp);
+            Sort2U(ref b, ref c, comp);
+            Sort2U(ref a, ref b, comp);
+        }
+
         [Template(nameof(T), nameof(comp))]
-        protected static int LowerBound(ReadOnlySpan<T> span, in T value, Comparison<T> comp)
+        public static int LowerBound(ReadOnlySpan<T> span, in T value, Comparison<T> comp)
         {
             int i = 0;
             int count = span.Length;
@@ -184,7 +290,7 @@ internal abstract partial class SortBase
         }
 
         [Template(nameof(T), nameof(comp))]
-        protected static int UpperBound(ReadOnlySpan<T> span, in T value, Comparison<T> comp)
+        public static int UpperBound(ReadOnlySpan<T> span, in T value, Comparison<T> comp)
         {
             int i = 0;
             int count = span.Length;
@@ -204,59 +310,6 @@ internal abstract partial class SortBase
                 }
             }
             return i;
-        }
-
-        [Template(nameof(T), nameof(comp), nameof(a), nameof(b),
-            Switch = TemplateVariants.IComparable | TemplateVariants.IComparisonOperators)]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected static void Sort2U(ref T a, ref T b, Comparison<T> comp)
-        {
-            if (Less(in b, in a, comp))
-            {
-                Swap(ref a, ref b);
-            }
-        }
-    }
-
-    internal abstract partial class Op<T>
-    {
-        [Template(nameof(T), null, nameof(a), nameof(b))]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected static void Sort2U(ref T a, ref T b)
-        {
-            T x = a;
-            T y = b;
-            bool m = Less(in y, in x);
-            a = m ? y : x;
-            b = m ? x : y;
-        }
-    }
-
-    internal abstract partial class Cmp<T>
-        where T : IComparable<T>
-    {
-        [Template(nameof(T), null, nameof(a), nameof(b))]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected static void Sort2U(ref T a, ref T b)
-        {
-            T x = a;
-            T y = b;
-            bool m = Less(in y, in x);
-            a = m ? y : x;
-            b = m ? x : y;
-        }
-    }
-
-    internal abstract partial class Fn<T>
-    {
-        // Sorts the elements *a, *b and *c using comparison function comp.
-        [Template(nameof(T), nameof(comp), nameof(a), nameof(b), nameof(c))]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected static void Sort3U(ref T a, ref T b, ref T c, Comparison<T> comp)
-        {
-            Sort2U(ref a, ref b, comp);
-            Sort2U(ref b, ref c, comp);
-            Sort2U(ref a, ref b, comp);
         }
 
         [Template(nameof(T), nameof(comp), nameof(span), nameof(target))]

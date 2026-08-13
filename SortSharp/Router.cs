@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using SortSharp.Extensions;
+using SortSharp.Compat;
 
 namespace SortSharp;
 

@@ -2,13 +2,13 @@
 using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using SortSharp.Extensions;
+using SortSharp.Compat;
 using SortSharp.SourceGeneration;
-using static SortSharp.Extensions.SpanExtensions;
+using static SortSharp.SpanExtensions;
 
 namespace SortSharp;
 
-public static partial class SpanExtensions
+public static partial class Extensions
 {
 #if NET7_0_OR_GREATER
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

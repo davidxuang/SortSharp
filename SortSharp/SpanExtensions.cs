@@ -2,35 +2,26 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using SortSharp.Compat;
 
-namespace SortSharp.Extensions;
+namespace SortSharp;
+
+public static partial class Extensions
+{
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void Rotate<T>(this Span<T> span, int left, Span<T> cache = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(left, 0, nameof(left));
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(left, span.Length, nameof(left));
+
+        SpanExtensions.Rotate(span, left, cache);
+    }
+}
 
 internal static partial class SpanExtensions
 {
     extension(Unsafe)
     {
-#if !NET8_0_OR_GREATER
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool IsNullRef<T>(ref readonly T source)
-            => Unsafe.IsNullRef(ref Unsafe.AsRef(in source));
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static nint ByteOffset<T>(ref readonly T origin, ref readonly T target)
-            => Unsafe.ByteOffset(ref Unsafe.AsRef(in origin), ref Unsafe.AsRef(in target));
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool AreSame<T>(ref readonly T left, ref readonly T right)
-            => Unsafe.AreSame(ref Unsafe.AsRef(in left), ref Unsafe.AsRef(in right));
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool IsAddressLessThan<T>(ref readonly T left, ref readonly T right)
-            => Unsafe.IsAddressLessThan(ref Unsafe.AsRef(in left), ref Unsafe.AsRef(in right));
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool IsAddressGreaterThan<T>(ref readonly T left, ref readonly T right)
-            => Unsafe.IsAddressGreaterThan(ref Unsafe.AsRef(in left), ref Unsafe.AsRef(in right));
-#endif
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static int Offset<T>(ref readonly T a, ref readonly T b)
             => (int)Unsafe.ByteOffset(in a, in b) / Unsafe.SizeOf<T>();
@@ -50,76 +41,73 @@ internal static partial class SpanExtensions
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static ref readonly T RoDec<T>(ref readonly T source)
             => ref Unsafe.Subtract(ref Unsafe.AsRef(in source), 1);
-            
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static ref readonly T RoAdd<T>(ref readonly T source, int elementOffset)
             => ref Unsafe.Add(ref Unsafe.AsRef(in source), elementOffset);
     }
 
-#if !NET8_0_OR_GREATER
-    extension(MemoryMarshal)
+    extension<T>(Span<T> span)
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ReadOnlySpan<T> CreateReadOnlySpan<T>(ref readonly T reference, int length)
-            => MemoryMarshal.CreateReadOnlySpan(ref Unsafe.AsRef(in reference), length);
+        internal ref T Ref(int index)
+#if DEBUG
+            => ref (index != -1 && index != span.Length // allows on-bound access
+                ? ref span[index]
+                : ref Unsafe.Add(ref MemoryMarshal.GetReference(span), index));
+#else
+            => ref Unsafe.Add(ref MemoryMarshal.GetReference(span), index);
+#endif
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal Span<T> Sub(Range range)
+#if DEBUG || !NETSTANDARD2_1_COMPAT
+            => span.Slice(range.Start, range.Length);
+#else
+            => MemoryMarshal.CreateSpan(ref span.Ref(range.Start), range.Length);
+#endif
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal Span<T> Sub(int start, int end)
+#if DEBUG || !NETSTANDARD2_1_COMPAT
+            => span.Slice(start, end - start);
+#else
+            => MemoryMarshal.CreateSpan(ref span.Ref(start), end - start);
+#endif
     }
-#endif
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static int Offset<T>(this scoped ReadOnlySpan<T> span, ref readonly T value)
-        => (int)Unsafe.ByteOffset(in MemoryMarshal.GetReference(span), in value) / Unsafe.SizeOf<T>();
+    extension<T>(ReadOnlySpan<T> span)
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal int Offset(ref readonly T value)
+            => (int)Unsafe.ByteOffset(in MemoryMarshal.GetReference(span), in value) / Unsafe.SizeOf<T>();
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static ref T Ref<T>(this Span<T> span, int index)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal ref readonly T Ref(int index)
 #if DEBUG
-        => ref (index != -1 && index != span.Length // allows on-bound access
-            ? ref span[index]
-            : ref Unsafe.Add(ref MemoryMarshal.GetReference(span), index));
+            => ref (index != -1 && index != span.Length // allows on-bound access
+                ? ref span[index]
+                : ref Unsafe.Add(ref MemoryMarshal.GetReference(span), index));
 #else
-        => ref Unsafe.Add(ref MemoryMarshal.GetReference(span), index);
+            => ref Unsafe.Add(ref MemoryMarshal.GetReference(span), index);
 #endif
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static ref readonly T Ref<T>(this ReadOnlySpan<T> span, int index)
-#if DEBUG
-        => ref ((index != span.Length)
-            ? ref span[index]
-            : ref Unsafe.Add(ref MemoryMarshal.GetReference(span), index));
-#else
-        => ref Unsafe.Add(ref MemoryMarshal.GetReference(span), index);
-#endif
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Span<T> Sub<T>(this Span<T> span, Range range)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal ReadOnlySpan<T> Sub(Range range)
 #if DEBUG || !NETSTANDARD2_1_COMPAT
-        => span.Slice(range.Start, range.Length);
+            => span.Slice(range.Start, range.Length);
 #else
-        => MemoryMarshal.CreateSpan(ref span.Ref(range.Start), range.Length);
+            => MemoryMarshal.CreateReadOnlySpan(in span.Ref(range.Start), range.Length);
 #endif
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static ReadOnlySpan<T> Sub<T>(this ReadOnlySpan<T> span, Range range)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal ReadOnlySpan<T> Sub(int start, int end)
 #if DEBUG || !NETSTANDARD2_1_COMPAT
-        => span.Slice(range.Start, range.Length);
+            => span.Slice(start, end - start);
 #else
-        => MemoryMarshal.CreateReadOnlySpan(in span.Ref(range.Start), range.Length);
+            => MemoryMarshal.CreateReadOnlySpan(in span.Ref(start), end - start);
 #endif
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Span<T> Sub<T>(this Span<T> span, int start, int end)
-#if DEBUG || !NETSTANDARD2_1_COMPAT
-        => span.Slice(start, end - start);
-#else
-        => MemoryMarshal.CreateSpan(ref span.Ref(start), end - start);
-#endif
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static ReadOnlySpan<T> Sub<T>(this ReadOnlySpan<T> span, int start, int end)
-#if DEBUG || !NETSTANDARD2_1_COMPAT
-        => span.Slice(start, end - start);
-#else
-        => MemoryMarshal.CreateReadOnlySpan(in span.Ref(start), end - start);
-#endif
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Swap<T>(ref T a, ref T b)

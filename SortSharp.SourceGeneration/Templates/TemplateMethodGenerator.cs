@@ -129,7 +129,8 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
         ImmutableArray<string> ItemNames,
         bool IsItemsSpan,
         TemplateVariants Switch,
-        bool Unstable);
+        bool IsPublic,
+        bool IsUnstable);
 
     private static TemplateMethod AnalyzeTemplate(GeneratorAttributeSyntaxContext ctx, CancellationToken ct)
     {
@@ -176,7 +177,8 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
                     .Any(p => p.Type.Name == nameof(Span<>) || p.Type.Name == nameof(ReadOnlySpan<>)),
                 Switch: GetNamedArgument<TemplateVariants>(attrClass, nameof(TemplateClassAttribute.Switch))
                     | GetNamedArgument<TemplateVariants>(attr, nameof(TemplateAttribute.Switch)),
-                Unstable: GetNamedArgument<bool>(attrClass, nameof(TemplateClassAttribute.IsUnstable))
+                IsPublic: symbol.DeclaredAccessibility == Accessibility.Public,
+                IsUnstable: GetNamedArgument<bool>(attrClass, nameof(TemplateClassAttribute.IsUnstable))
             );
         }
 
@@ -281,6 +283,7 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
 
     private static MethodDeclarationSyntax ToContract(MethodDeclarationSyntax method)
         => method.WithModifiers([F.Token(SyntaxKind.AbstractKeyword)])
+            .WithAttributeLists([])
             .WithConstraintClauses([])
             .WithBody(null)
             .WithSemicolonToken(F.Token(SyntaxKind.SemicolonToken));
@@ -288,10 +291,15 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
     private static MethodDeclarationSyntax ToWrapper(
         MethodDeclarationSyntax method,
         TypeDeclCore targetType,
+        string targetMethod,
         bool moveNans)
     {
         method = method.WithModifiers([F.Token(SyntaxKind.PublicKeyword)])
+            .WithAttributeLists([])
             .WithConstraintClauses([]);
+        var expr = F.InvocationExpression(
+            F.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, targetType.Syntax, F.IdentifierName(targetMethod)),
+            F.ArgumentList([.. method.ParameterList.Parameters.Select(p => F.Argument(F.IdentifierName(p.Identifier)))]));
         if (moveNans)
         {
             method = method.WithBody(F.Block(F.List<StatementSyntax>([
@@ -320,17 +328,12 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
                                     F.IdentifierName(nameof(Span<>.Length))))
                             ])
                         )))),
-                F.ExpressionStatement(F.InvocationExpression(
-                    F.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, targetType.Syntax, F.IdentifierName("Sort")),
-                    F.ArgumentList([.. method.ParameterList.Parameters.Select(p => F.Argument(F.IdentifierName(p.Identifier)))]))),
-                ])));
+                F.ExpressionStatement(expr),
+            ])));
         }
         else
         {
-            method = method.WithBody(F.Block(F.ExpressionStatement(F.InvocationExpression(
-                F.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, targetType.Syntax, F.IdentifierName("Sort")),
-                F.ArgumentList([.. method.ParameterList.Parameters.Select(p => F.Argument(F.IdentifierName(p.Identifier)))]))
-            )));
+            method = method.WithBody(null).WithExpressionBody(F.ArrowExpressionClause(expr)).WithSemicolonToken(F.Token(SyntaxKind.SemicolonToken));
         }
         return method;
     }
@@ -345,7 +348,6 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
 
         var decl = template.Declaration;
         var options = template.Options;
-        var wrapper = $"{template.OriginType.Containing?.Name ?? template.OriginType.Name}Sort";
 
         if (options!.Switch.HasFlag(TemplateVariants.LessThanOrEqual))
         {
@@ -361,8 +363,8 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
         if (options.ItemNames.Any() && !options.Switch.HasFlag(TemplateVariants.KeyValue))
         {
             ItemsRewriter IW = options!.IsItemsSpan // <?> => <T, V>
-                ? ItemsRewriter.CreateForSpans(behaviors, options.GenericName, options.CompareName, options.ItemNames)
-                : ItemsRewriter.CreateForItems(behaviors, options.GenericName, options.CompareName, options.ItemNames);
+                ? ItemsRewriter.CreateForSpans(behaviors, options.GenericName, options.ItemNames)
+                : ItemsRewriter.CreateForItems(behaviors, options.GenericName, options.ItemNames);
             iw = (MethodDeclarationSyntax)IW.Visit(decl);
             if (template.OriginType.Name is "Cmp" or "Op" && template.OriginType.TypeParameters.Length == 1)
             {
@@ -427,8 +429,12 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
                 }
             }
 
-            if (template.Name != "Sort")
+            if (!options.IsPublic)
                 yield break;
+
+            var wrapper = template.Name.StartsWith("Sort")
+                ? $"{template.OriginType.Containing?.Name ?? template.OriginType.Name}{template.Name}"
+                : template.Name;
 
             if (cb is not null)
             {
@@ -438,17 +444,17 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
                     yield return GeneratedMethod.CreateWrapper(template, ToContract(method), _idp);
                     yield return GeneratedMethod.CreateWrapper(
                         template,
-                        ToWrapper(method, cmp1, false),
+                        ToWrapper(method, cmp1, template.Name, false),
                         _csp);
 
                     if (lt is null)
                         yield return GeneratedMethod.CreateWrapper(template,
-                            ToWrapper(method, cmp1, false),
+                            ToWrapper(method, cmp1, template.Name, false),
                             _ndp);
-                    if (!options.Unstable)
+                    if (!options.IsUnstable)
                         yield return GeneratedMethod.CreateWrapper(
                             template,
-                            ToWrapper(method, cmp1, false),
+                            ToWrapper(method, cmp1, template.Name, false),
                             _fdp);
                 }
             }
@@ -459,37 +465,15 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
                 {
                     var method = target!.WithIdentifier(F.Identifier(wrapper));
                     yield return GeneratedMethod.CreateWrapper(template,
-                        ToWrapper(method, op1, false),
+                        ToWrapper(method, op1, template.Name, false),
                         _ndp);
 
-                    if (options.Unstable)
+                    if (options.IsUnstable)
                         yield return GeneratedMethod.CreateWrapper(template,
-                            ToWrapper(method, op1, true),
+                            ToWrapper(method, op1, template.Name, template.Name.StartsWith("Sort")),
                             _fdp);
                 }
             }
-
-            //if (cb is not null && !options.ForUnstable)
-            //{
-            //    foreach (var target in Enumerable.Where([cb, ci], d => d is not null))
-            //    {
-            //        var method = target!.WithIdentifier(F.Identifier(wrapper)).WithConstraintClauses([]);
-            //        yield return GeneratedMethod.CreateWrapper(
-            //            template,
-            //            ToWrapper(method, cmp1, options.ForUnstable),
-            //            _fdp);
-            //    }
-            //}
-            //else if (lt is not null && options.ForUnstable)
-            //{
-            //    foreach (var target in Enumerable.Where([lt, li], d => d is not null))
-            //    {
-            //        var method = target!.WithIdentifier(F.Identifier(wrapper));
-            //        yield return GeneratedMethod.CreateWrapper(template,
-            //            ToWrapper(method, op1, true),
-            //            _fdp);
-            //    }
-            //}
 
             if (!options.Switch.HasFlag(TemplateVariants.TComparer))
             {
@@ -498,7 +482,7 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
                 {
                     var method = target!.WithIdentifier(F.Identifier(wrapper));
                     yield return GeneratedMethod.CreateWrapper(template,
-                        (MethodDeclarationSyntax)CWW.Visit(ToWrapper(method, cmp2, false)),
+                        (MethodDeclarationSyntax)CWW.Visit(ToWrapper(method, cmp2, template.Name, false)),
                         _dsp);
                 }
             }

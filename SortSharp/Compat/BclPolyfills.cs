@@ -3,9 +3,9 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 
-namespace SortSharp.Extensions;
+namespace SortSharp.Compat;
 
-internal static class RuntimeExtensions
+internal static partial class BclPolyfills
 {
 #if !NET6_0_OR_GREATER
     extension(ArgumentNullException)
@@ -24,6 +24,20 @@ internal static class RuntimeExtensions
             where T : IEquatable<T>
         {
             if (!value.Equals(other))
+                throw new ArgumentOutOfRangeException(paramName);
+        }
+
+        internal static void ThrowIfLessThan<T>(T value, T min, string? paramName = default)
+            where T : IComparable<T>
+        {
+            if (value.CompareTo(min) < 0)
+                throw new ArgumentOutOfRangeException(paramName);
+        }
+
+        internal static void ThrowIfGreaterThan<T>(T value, T max, string? paramName = default)
+            where T : IComparable<T>
+        {
+            if (value.CompareTo(max) > 0)
                 throw new ArgumentOutOfRangeException(paramName);
         }
     }

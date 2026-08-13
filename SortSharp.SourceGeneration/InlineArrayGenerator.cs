@@ -104,7 +104,7 @@ internal sealed class InlineArrayGenerator : IIncrementalGenerator
                 }
 
                 var root = F.CompilationUnit()
-                    .WithUsings([F.UsingDirective(F.ParseName("SortSharp.Extensions"))])
+                    .WithUsings([F.UsingDirective(F.ParseName("SortSharp.Compat"))])
                     .WithMembers([F.FileScopedNamespaceDeclaration(F.ParseName(symbol.ContainingNamespace.ToDisplayString()))
                         .WithMembers([y])]);
 
