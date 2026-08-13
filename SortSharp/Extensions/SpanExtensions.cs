@@ -140,7 +140,7 @@ internal static partial class SpanExtensions
     }
 
     /// <see cref="https://github.com/scandum/rotate"/>
-    internal static void Rotate<T>(Span<T> span, int left)
+    internal static void Rotate<T>(Span<T> span, int left, Span<T> cache = default)
     {
         Debug.Assert(0 <= left && left <= span.Length);
 
@@ -149,14 +149,40 @@ internal static partial class SpanExtensions
             return; // 0
 
         ref T a = ref span.Ref(0);
-        ref T b = ref span.Ref(left);
-        ref T c = ref b;
         ref T d = ref span.Ref(span.Length);
         T swap;
         int loop;
 
         if (left > right)
         {
+            if (right <= cache.Length)
+            {
+                span.Sub(left, span.Length).CopyTo(cache);
+                span.Sub(0, left).CopyTo(span.Sub(right, span.Length));
+                cache.Sub(0, right).CopyTo(span.Sub(0, right));
+                return;
+            }
+
+            ref T b = ref span.Ref(left);
+            ref T c = ref b;
+            loop = left - right;
+
+            if (loop <= cache.Length && loop > 3)
+            {
+                c = ref span.Ref(right);
+                span.Sub(right, right + loop).CopyTo(cache);
+                while (right-- > 0)
+                {
+                    c = a;
+                    c = ref Unsafe.Inc(ref c);
+                    a = b;
+                    a = ref Unsafe.Inc(ref a);
+                    b = ref Unsafe.Inc(ref b);
+                }
+                cache.Sub(0, loop).CopyTo(span.Sub(span.Length - loop, span.Length));
+                return;
+            }
+
             for (loop = right / 2; loop != 0; loop--)
             {
                 b = ref Unsafe.Dec(ref b);
@@ -182,6 +208,34 @@ internal static partial class SpanExtensions
         }
         else if (left < right)
         {
+            if (left <= cache.Length)
+            {
+                span.Sub(0, left).CopyTo(cache);
+                span.Sub(left, span.Length).CopyTo(span.Sub(0, right));
+                cache.Sub(0, left).CopyTo(span.Sub(right, span.Length));
+                return;
+            }
+
+            ref T b = ref span.Ref(left);
+            ref T c = ref b;
+            loop = right - left;
+
+            if (loop <= cache.Length && loop > 3)
+            {
+                c = ref span.Ref(right);
+                span.Sub(left, left + loop).CopyTo(cache);
+                while (left-- > 0)
+                {
+                    c = ref Unsafe.Dec(ref c);
+                    d = ref Unsafe.Dec(ref d);
+                    c = d;
+                    b = ref Unsafe.Dec(ref b);
+                    d = b;
+                }
+                cache.Sub(0, loop).CopyTo(span);
+                return;
+            }
+
             for (loop = left / 2; loop != 0; loop--)
             {
                 b = ref Unsafe.Dec(ref b);
@@ -207,6 +261,8 @@ internal static partial class SpanExtensions
         }
         else
         {
+            ref T b = ref span.Ref(left);
+
             for (loop = left; loop != 0; loop--)
             {
                 swap = a;
@@ -228,38 +284,5 @@ internal static partial class SpanExtensions
         }
 
         // return end - (mid - begin);
-    }
-
-    internal static void Rotate<T>(Span<T> span, int left, Span<T> cache)
-    {
-        Debug.Assert(0 <= left && left <= span.Length);
-
-        int right = span.Length - left;
-
-        if (left == 0 || right == 0)
-            return;
-        
-        if (left <= right)
-        {
-            if (left <= cache.Length)
-            {
-                span.Sub(0, left).CopyTo(cache);
-                span.Sub(left, span.Length).CopyTo(span.Sub(0, right));
-                cache.Sub(0, left).CopyTo(span.Sub(right, span.Length));
-                return;
-            }
-        }
-        else
-        {
-            if (right <= cache.Length)
-            {
-                span.Sub(left, span.Length).CopyTo(cache);
-                span.Sub(0, left).CopyTo(span.Sub(right, span.Length));
-                cache.Sub(0, right).CopyTo(span.Sub(0, right));
-                return;
-            }
-        }
-
-        Rotate(span, left);
     }
 }
