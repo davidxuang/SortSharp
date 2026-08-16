@@ -104,7 +104,7 @@ public static partial class Extensions
 
 /// <see href="https://github.com/Voultapher/sort-research-rs/tree/main/ipnsort/src" />
 [TemplateClass(IsUnstable = true)]
-internal abstract partial class IPN : SortBase
+internal static partial class IPN
 {
     /// Optimal number of comparisons, and good perf.
     const int SmallSortFallbackThreshold = 16;
@@ -141,7 +141,7 @@ internal abstract partial class IPN : SortBase
     ref partial struct ScratchN<T>;
 #endif
 
-    internal sealed new partial class Fn<T> : SortBase.Fn<T>
+    internal abstract partial class Fn<T> : SortBase.Fn<T>
     {
         [Template(nameof(T), "comp", Switch = TemplateVariants.IComparisonOperators)]
         static int SmallSortThreshold() => Unsafe.SizeOf<T>() * SmallSortGeneralScratchLen > MaxStackArraySize
@@ -460,31 +460,31 @@ internal abstract partial class IPN : SortBase
             Debug.Assert(span.Length >= 9);
             // Optimal sorting network see:
             // https://bertdobbelaere.github.io/sorting_networks.html.
-            Sort2U(ref span.Ref(0), ref span.Ref(3));
-            Sort2U(ref span.Ref(1), ref span.Ref(7));
-            Sort2U(ref span.Ref(2), ref span.Ref(5));
-            Sort2U(ref span.Ref(4), ref span.Ref(8));
-            Sort2U(ref span.Ref(0), ref span.Ref(7));
-            Sort2U(ref span.Ref(2), ref span.Ref(4));
-            Sort2U(ref span.Ref(3), ref span.Ref(8));
-            Sort2U(ref span.Ref(5), ref span.Ref(6));
-            Sort2U(ref span.Ref(0), ref span.Ref(2));
-            Sort2U(ref span.Ref(1), ref span.Ref(3));
-            Sort2U(ref span.Ref(4), ref span.Ref(5));
-            Sort2U(ref span.Ref(7), ref span.Ref(8));
-            Sort2U(ref span.Ref(1), ref span.Ref(4));
-            Sort2U(ref span.Ref(3), ref span.Ref(6));
-            Sort2U(ref span.Ref(5), ref span.Ref(7));
-            Sort2U(ref span.Ref(0), ref span.Ref(1));
-            Sort2U(ref span.Ref(2), ref span.Ref(4));
-            Sort2U(ref span.Ref(3), ref span.Ref(5));
-            Sort2U(ref span.Ref(6), ref span.Ref(8));
-            Sort2U(ref span.Ref(2), ref span.Ref(3));
-            Sort2U(ref span.Ref(4), ref span.Ref(5));
-            Sort2U(ref span.Ref(6), ref span.Ref(7));
-            Sort2U(ref span.Ref(1), ref span.Ref(2));
-            Sort2U(ref span.Ref(3), ref span.Ref(4));
-            Sort2U(ref span.Ref(5), ref span.Ref(6));
+            CmpEx(ref span.Ref(0), ref span.Ref(3));
+            CmpEx(ref span.Ref(1), ref span.Ref(7));
+            CmpEx(ref span.Ref(2), ref span.Ref(5));
+            CmpEx(ref span.Ref(4), ref span.Ref(8));
+            CmpEx(ref span.Ref(0), ref span.Ref(7));
+            CmpEx(ref span.Ref(2), ref span.Ref(4));
+            CmpEx(ref span.Ref(3), ref span.Ref(8));
+            CmpEx(ref span.Ref(5), ref span.Ref(6));
+            CmpEx(ref span.Ref(0), ref span.Ref(2));
+            CmpEx(ref span.Ref(1), ref span.Ref(3));
+            CmpEx(ref span.Ref(4), ref span.Ref(5));
+            CmpEx(ref span.Ref(7), ref span.Ref(8));
+            CmpEx(ref span.Ref(1), ref span.Ref(4));
+            CmpEx(ref span.Ref(3), ref span.Ref(6));
+            CmpEx(ref span.Ref(5), ref span.Ref(7));
+            CmpEx(ref span.Ref(0), ref span.Ref(1));
+            CmpEx(ref span.Ref(2), ref span.Ref(4));
+            CmpEx(ref span.Ref(3), ref span.Ref(5));
+            CmpEx(ref span.Ref(6), ref span.Ref(8));
+            CmpEx(ref span.Ref(2), ref span.Ref(3));
+            CmpEx(ref span.Ref(4), ref span.Ref(5));
+            CmpEx(ref span.Ref(6), ref span.Ref(7));
+            CmpEx(ref span.Ref(1), ref span.Ref(2));
+            CmpEx(ref span.Ref(3), ref span.Ref(4));
+            CmpEx(ref span.Ref(5), ref span.Ref(6));
         }
 
         // Never inline this function to avoid code bloat. It still optimizes nicely and has practically no
@@ -495,51 +495,51 @@ internal abstract partial class IPN : SortBase
             Debug.Assert(span.Length >= 13);
             // Optimal sorting network see:
             // https://bertdobbelaere.github.io/sorting_networks.html.
-            Sort2U(ref span.Ref(0), ref span.Ref(12));
-            Sort2U(ref span.Ref(1), ref span.Ref(10));
-            Sort2U(ref span.Ref(2), ref span.Ref(9));
-            Sort2U(ref span.Ref(3), ref span.Ref(7));
-            Sort2U(ref span.Ref(5), ref span.Ref(11));
-            Sort2U(ref span.Ref(6), ref span.Ref(8));
-            Sort2U(ref span.Ref(1), ref span.Ref(6));
-            Sort2U(ref span.Ref(2), ref span.Ref(3));
-            Sort2U(ref span.Ref(4), ref span.Ref(11));
-            Sort2U(ref span.Ref(7), ref span.Ref(9));
-            Sort2U(ref span.Ref(8), ref span.Ref(10));
-            Sort2U(ref span.Ref(0), ref span.Ref(4));
-            Sort2U(ref span.Ref(1), ref span.Ref(2));
-            Sort2U(ref span.Ref(3), ref span.Ref(6));
-            Sort2U(ref span.Ref(7), ref span.Ref(8));
-            Sort2U(ref span.Ref(9), ref span.Ref(10));
-            Sort2U(ref span.Ref(11), ref span.Ref(12));
-            Sort2U(ref span.Ref(4), ref span.Ref(6));
-            Sort2U(ref span.Ref(5), ref span.Ref(9));
-            Sort2U(ref span.Ref(8), ref span.Ref(11));
-            Sort2U(ref span.Ref(10), ref span.Ref(12));
-            Sort2U(ref span.Ref(0), ref span.Ref(5));
-            Sort2U(ref span.Ref(3), ref span.Ref(8));
-            Sort2U(ref span.Ref(4), ref span.Ref(7));
-            Sort2U(ref span.Ref(6), ref span.Ref(11));
-            Sort2U(ref span.Ref(9), ref span.Ref(10));
-            Sort2U(ref span.Ref(0), ref span.Ref(1));
-            Sort2U(ref span.Ref(2), ref span.Ref(5));
-            Sort2U(ref span.Ref(6), ref span.Ref(9));
-            Sort2U(ref span.Ref(7), ref span.Ref(8));
-            Sort2U(ref span.Ref(10), ref span.Ref(11));
-            Sort2U(ref span.Ref(1), ref span.Ref(3));
-            Sort2U(ref span.Ref(2), ref span.Ref(4));
-            Sort2U(ref span.Ref(5), ref span.Ref(6));
-            Sort2U(ref span.Ref(9), ref span.Ref(10));
-            Sort2U(ref span.Ref(1), ref span.Ref(2));
-            Sort2U(ref span.Ref(3), ref span.Ref(4));
-            Sort2U(ref span.Ref(5), ref span.Ref(7));
-            Sort2U(ref span.Ref(6), ref span.Ref(8));
-            Sort2U(ref span.Ref(2), ref span.Ref(3));
-            Sort2U(ref span.Ref(4), ref span.Ref(5));
-            Sort2U(ref span.Ref(6), ref span.Ref(7));
-            Sort2U(ref span.Ref(8), ref span.Ref(9));
-            Sort2U(ref span.Ref(3), ref span.Ref(4));
-            Sort2U(ref span.Ref(5), ref span.Ref(6));
+            CmpEx(ref span.Ref(0), ref span.Ref(12));
+            CmpEx(ref span.Ref(1), ref span.Ref(10));
+            CmpEx(ref span.Ref(2), ref span.Ref(9));
+            CmpEx(ref span.Ref(3), ref span.Ref(7));
+            CmpEx(ref span.Ref(5), ref span.Ref(11));
+            CmpEx(ref span.Ref(6), ref span.Ref(8));
+            CmpEx(ref span.Ref(1), ref span.Ref(6));
+            CmpEx(ref span.Ref(2), ref span.Ref(3));
+            CmpEx(ref span.Ref(4), ref span.Ref(11));
+            CmpEx(ref span.Ref(7), ref span.Ref(9));
+            CmpEx(ref span.Ref(8), ref span.Ref(10));
+            CmpEx(ref span.Ref(0), ref span.Ref(4));
+            CmpEx(ref span.Ref(1), ref span.Ref(2));
+            CmpEx(ref span.Ref(3), ref span.Ref(6));
+            CmpEx(ref span.Ref(7), ref span.Ref(8));
+            CmpEx(ref span.Ref(9), ref span.Ref(10));
+            CmpEx(ref span.Ref(11), ref span.Ref(12));
+            CmpEx(ref span.Ref(4), ref span.Ref(6));
+            CmpEx(ref span.Ref(5), ref span.Ref(9));
+            CmpEx(ref span.Ref(8), ref span.Ref(11));
+            CmpEx(ref span.Ref(10), ref span.Ref(12));
+            CmpEx(ref span.Ref(0), ref span.Ref(5));
+            CmpEx(ref span.Ref(3), ref span.Ref(8));
+            CmpEx(ref span.Ref(4), ref span.Ref(7));
+            CmpEx(ref span.Ref(6), ref span.Ref(11));
+            CmpEx(ref span.Ref(9), ref span.Ref(10));
+            CmpEx(ref span.Ref(0), ref span.Ref(1));
+            CmpEx(ref span.Ref(2), ref span.Ref(5));
+            CmpEx(ref span.Ref(6), ref span.Ref(9));
+            CmpEx(ref span.Ref(7), ref span.Ref(8));
+            CmpEx(ref span.Ref(10), ref span.Ref(11));
+            CmpEx(ref span.Ref(1), ref span.Ref(3));
+            CmpEx(ref span.Ref(2), ref span.Ref(4));
+            CmpEx(ref span.Ref(5), ref span.Ref(6));
+            CmpEx(ref span.Ref(9), ref span.Ref(10));
+            CmpEx(ref span.Ref(1), ref span.Ref(2));
+            CmpEx(ref span.Ref(3), ref span.Ref(4));
+            CmpEx(ref span.Ref(5), ref span.Ref(7));
+            CmpEx(ref span.Ref(6), ref span.Ref(8));
+            CmpEx(ref span.Ref(2), ref span.Ref(3));
+            CmpEx(ref span.Ref(4), ref span.Ref(5));
+            CmpEx(ref span.Ref(6), ref span.Ref(7));
+            CmpEx(ref span.Ref(8), ref span.Ref(9));
+            CmpEx(ref span.Ref(3), ref span.Ref(4));
+            CmpEx(ref span.Ref(5), ref span.Ref(6));
         }
     }
 

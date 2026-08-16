@@ -134,16 +134,19 @@ internal abstract partial class SortBase
     }
 #endif
 
-    internal abstract partial class Fn<T>
+    internal abstract partial class Fn<T> : SortBase
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected static bool Less(ref readonly T a, ref readonly T b, Comparison<T> comp)
             => comp(a, b) < 0;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected static int Compare(ref readonly T a, ref readonly T b, Comparison<T> comp)
+            => comp(a, b);
 
         [Template(nameof(T), nameof(comp), nameof(a), nameof(b),
             Switch = TemplateVariants.IComparable | TemplateVariants.IComparisonOperators)]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected static void Sort2U(ref T a, ref T b, Comparison<T> comp)
+        protected static void CmpEx(ref T a, ref T b, Comparison<T> comp)
         {
             if (Less(in b, in a, comp))
             {
@@ -164,7 +167,7 @@ internal abstract partial class SortBase
     /// The less-than operation used here does not provide a total order for NaN values.
     /// </para>
     /// </remarks>
-    internal abstract partial class Op<T>
+    internal abstract partial class Op<T> : SortBase
 #if NET7_0_OR_GREATER
         where T : unmanaged, IComparisonOperators<T, T, bool>
 #else
@@ -198,7 +201,7 @@ internal abstract partial class SortBase
 
         [Template(nameof(T), null, nameof(a), nameof(b))]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected static void Sort2U(ref T a, ref T b)
+        protected static void CmpEx(ref T a, ref T b)
         {
             T x = a;
             T y = b;
@@ -208,7 +211,7 @@ internal abstract partial class SortBase
         }
     }
 
-    internal abstract partial class Cmp<T>
+    internal abstract partial class Cmp<T> : SortBase
         where T : IComparable<T>
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -233,10 +236,15 @@ internal abstract partial class SortBase
                 ? a.CompareTo(b) < 0
                 : b is not null;
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected static int Compare(ref readonly T a, ref readonly T b)
+            => a is not null
+                ? a.CompareTo(b)
+                : b is null ? 0 : -1;
 
         [Template(nameof(T), null, nameof(a), nameof(b))]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected static void Sort2U(ref T a, ref T b)
+        protected static void CmpEx(ref T a, ref T b)
         {
             T x = a;
             T y = b;
@@ -246,26 +254,19 @@ internal abstract partial class SortBase
         }
     }
 
-    internal abstract partial class Cmp<T, C>
+    internal abstract partial class Cmp<T, C> : SortBase
         where C : IComparer<T>
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected static bool Less(ref readonly T a, ref readonly T b, C comp)
             => comp.Compare(a, b) < 0;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected static int Compare(ref readonly T a, ref readonly T b, C comp)
+            => comp.Compare(a, b);
     }
 
     internal abstract partial class Fn<T>
     {
-        // Sorts the elements *a, *b and *c using comparison function comp.
-        [Template(nameof(T), nameof(comp), nameof(a), nameof(b), nameof(c))]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected static void Sort3U(ref T a, ref T b, ref T c, Comparison<T> comp)
-        {
-            Sort2U(ref a, ref b, comp);
-            Sort2U(ref b, ref c, comp);
-            Sort2U(ref a, ref b, comp);
-        }
-
         [Template(nameof(T), nameof(comp))]
         public static int LowerBound(ReadOnlySpan<T> span, in T value, Comparison<T> comp)
         {
@@ -313,7 +314,7 @@ internal abstract partial class SortBase
         }
 
         [Template(nameof(T), nameof(comp), nameof(span), nameof(target))]
-        internal static void Merge(ReadOnlySpan<T> span, int split, Span<T> target, Comparison<T> comp)
+        protected static void Merge(ReadOnlySpan<T> span, int split, Span<T> target, Comparison<T> comp)
         {
             Debug.Assert(split > 0 && split < span.Length);
 

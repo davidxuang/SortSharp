@@ -34,7 +34,7 @@ public class Tests
         else
             IPN.Cmp<long>.Sort(keys, values);
 
-        for (int i = 1; i < keys.Length; i++)
+        for (int i = 0; i < keys.Length; i++)
         {
             await Assert.That(keys[i]).EqualTo(i / 2).Because($"index {i}");
             await Assert.That(values[i]).EqualTo(i / 2).Because($"index {i}");
@@ -56,7 +56,7 @@ public class Tests
         else
             PDQ.Cmp<long>.Sort(keys, values);
 
-        for (int i = 1; i < keys.Length; i++)
+        for (int i = 0; i < keys.Length; i++)
         {
             await Assert.That(keys[i]).EqualTo(i / 2).Because($"index {i}");
             await Assert.That(values[i]).EqualTo(i / 2).Because($"index {i}");
@@ -64,20 +64,40 @@ public class Tests
     }
 
     [Test]
-    [Arguments(10_000, MemoryPolicy.None)]
-    [Arguments(10_000, MemoryPolicy.Fixed)]
-    [Arguments(10_000, MemoryPolicy.Balanced)]
-    [Arguments(10_000, MemoryPolicy.Maximum)]
-    public async Task WikiSort(int length, MemoryPolicy policy)
+    [Arguments(10_000, MemoryProfile.Minimum)]
+    [Arguments(10_000, MemoryProfile.Baseline)]
+    [Arguments(10_000, MemoryProfile.High)]
+    public async Task GrailSort(int length, MemoryProfile profile)
     {
         var keys = new long[length];
         Prepare(keys);
         var values = new long[length];
         keys.CopyTo(values);
 
-        keys.WikiSort(values, policy);
+        keys.GrailSort(values, profile);
 
-        for (int i = 1; i < keys.Length; i++)
+        for (int i = 0; i < keys.Length; i++)
+        {
+            await Assert.That(keys[i]).EqualTo(i / 2).Because($"index {i}");
+            await Assert.That(values[i]).EqualTo(i / 2).Because($"index {i}");
+        }
+    }
+
+    [Test]
+    [Arguments(10_000, MemoryProfile.Minimum)]
+    [Arguments(10_000, MemoryProfile.Baseline)]
+    [Arguments(10_000, MemoryProfile.High)]
+    [Arguments(10_000, MemoryProfile.Maximum)]
+    public async Task WikiSort(int length, MemoryProfile profile)
+    {
+        var keys = new long[length];
+        Prepare(keys);
+        var values = new long[length];
+        keys.CopyTo(values);
+
+        keys.WikiSort(values, profile);
+
+        for (int i = 0; i < keys.Length; i++)
         {
             await Assert.That(keys[i]).EqualTo(i / 2).Because($"index {i}");
             await Assert.That(values[i]).EqualTo(i / 2).Because($"index {i}");

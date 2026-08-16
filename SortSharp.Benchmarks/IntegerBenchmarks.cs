@@ -92,11 +92,20 @@ public partial class IntegerBenchmarks
     }
 
     [Benchmark]
-    [Arguments(MemoryPolicy.None)]
-    [Arguments(MemoryPolicy.Fixed)]
-    [Arguments(MemoryPolicy.Balanced)]
-    [Arguments(MemoryPolicy.Maximum)]
-    public void WikiSort(MemoryPolicy Variant)
+    [Arguments(MemoryProfile.Minimum)]
+    [Arguments(MemoryProfile.Baseline)]
+    [Arguments(MemoryProfile.High)]
+    public void GrailSort(MemoryProfile Variant)
+    {
+        buffer.GrailSort(Variant);
+    }
+
+    [Benchmark]
+    [Arguments(MemoryProfile.Minimum)]
+    [Arguments(MemoryProfile.Baseline)]
+    [Arguments(MemoryProfile.High)]
+    [Arguments(MemoryProfile.Maximum)]
+    public void WikiSort(MemoryProfile Variant)
     {
         buffer.WikiSort(Variant);
     }

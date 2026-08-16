@@ -90,7 +90,8 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
         ImmutableArray<string> TypeParameters,
         TypeDeclCore? Containing = null,
         TypeDeclCore? Base = null,
-        TypeKind Kind = TypeKind.Class) : TypeDeclCore(Name, TypeParameters, Containing);
+        TypeKind Kind = TypeKind.Class,
+        SyntaxKind Modifier = default) : TypeDeclCore(Name, TypeParameters, Containing);
 
     private static TypeDecl ResolveType(ITypeSymbol symbol)
         => new(symbol.Name,
@@ -103,7 +104,14 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
             symbol.BaseType is not null && symbol.BaseType.SpecialType != SpecialType.System_Object
                 ? ResolveType(symbol.BaseType)
                 : null,
-            symbol.IsValueType ? TypeKind.Struct : TypeKind.Class);
+            symbol.IsValueType ? TypeKind.Struct : TypeKind.Class,
+            symbol switch
+            {
+                { IsAbstract: true, IsSealed: true } => SyntaxKind.StaticKeyword,
+                { IsAbstract: true } => SyntaxKind.AbstractKeyword,
+                { IsSealed: true } => SyntaxKind.SealedKeyword,
+                _ => default,
+            });
 
     private static T GetNamedArgument<T>(AttributeData? attr, string name, T defaultValue = default!)
     {
@@ -146,17 +154,6 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
         segments = segments.Reverse().Skip(1).TakeWhile(s => !s.StartsWith("SortSharp")).Reverse();
         var relative = string.Join("/", segments);
 
-        var type = new TypeDecl(symbol.ContainingType.Name,
-            symbol.ContainingType is INamedTypeSymbol named
-                ? [.. named.TypeParameters.Select(p => p.Name)]
-                : [],
-            symbol.ContainingType.ContainingType is not null
-                ? ResolveType(symbol.ContainingType.ContainingType)
-                : null,
-            symbol.ContainingType.BaseType is not null && symbol.ContainingType.BaseType.SpecialType != SpecialType.System_Object
-                ? ResolveType(symbol.ContainingType.BaseType)
-                : null);
-
         TemplateOptions? options;
         var generic = attr.ConstructorArguments.Length >= 1 ? attr.ConstructorArguments[0].Value as string : null;
         var compare = attr.ConstructorArguments.Length >= 2 ? attr.ConstructorArguments[1].Value as string : null;
@@ -182,12 +179,16 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
             );
         }
 
-        var behavior = attr.ConstructorArguments.Length < 3 || !attr.ConstructorArguments[2].Values.Any()
-            ? CallSiteBehaviors.None
-            : attr.ConstructorArguments[2].Values.Select(a => symbol.Parameters.IndexOf(symbol.Parameters.First(p => p.Name == (string)a.Value!)))
+        var valid = attr.ConstructorArguments.Reverse().SkipWhile(a => a is { IsNull: true } or { Kind: TypedConstantKind.Array, Values: [] }).Reverse().Count();
+        var behavior = attr.ConstructorArguments[..valid] switch
+        {
+            [] or [_, _] => CallSiteBehaviors.None,
+            [_] => CallSiteBehaviors.RepeatCall,
+            _ => attr.ConstructorArguments[2].Values.Select(a => symbol.Parameters.IndexOf(symbol.Parameters.First(p => p.Name == (string)a.Value!)))
                 .Select(i => (uint)CallSiteBehaviors.RepeatArgument0 << i)
                 .Cast<CallSiteBehaviors>()
-                .Aggregate(CallSiteBehaviors.None, (a, b) => a | b);
+                .Aggregate(CallSiteBehaviors.None, (a, b) => a | b)
+        };
 
         return new TemplateMethod(
             decl,
@@ -206,9 +207,6 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
         SortedDictionary<string, CallSiteBehaviors> dict = new()
         {
             ["Less"] = CallSiteBehaviors.None,
-            ["Swap"] = CallSiteBehaviors.RepeatCall,
-            ["SwapBlock"] = CallSiteBehaviors.RepeatCall,
-            ["Rotate"] = CallSiteBehaviors.RepeatCall,
             ["CopyTo"] = CallSiteBehaviors.RepeatCall,
             ["CopyToFill"] = CallSiteBehaviors.RepeatCall,
             ["Dispose"] = CallSiteBehaviors.RepeatCall,
@@ -245,13 +243,7 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
             MemberDeclarationSyntax declaration,
             TypeDecl? child = null)
         {
-            var type = child switch
-            {
-                null => template.OriginType,
-                _ => child with { Base = child.Containing is TypeDecl { Base: TypeDeclCore b }
-                    ? new(child.Name, child.TypeParameters, b)
-                    : null },
-            };
+            var type = child ?? template.OriginType;
             IEnumerable<string> segments = [template.OriginFolder, $"{type.HintName}.g"];
             return new GeneratedMethod(
                 (MethodDeclarationSyntax)trimmer.Visit(declaration),
@@ -385,12 +377,19 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
             //}
 
             MethodDeclarationSyntax? cb = null, ci = null, lt = null, li = null;
-            var parent = template.OriginType.Name is "Fn" or "Cmp" or "Op"
-                ? template.OriginType.Containing ?? throw new InvalidOperationException()
-                : template.OriginType;
-            var cmp1 = new TypeDecl("Cmp", [options.GenericName], parent, (parent as TypeDecl)?.Base);
-            var cmp2 = new TypeDecl("Cmp", [options.GenericName, "C"], parent, (parent as TypeDecl)?.Base);
-            var op1 = new TypeDecl("Op", [options.GenericName], parent, (parent as TypeDecl)?.Base);
+            
+            static TypeDecl derive(TypeDecl origin, string name, ImmutableArray<string> typeParameters)
+            {
+                var bs = origin.Base is { Name: "Fn" or "Cmp" or "Op" }
+                    ? origin.Base with { Name = name, TypeParameters = typeParameters }
+                    : origin.Base;
+                return origin.Name is "Fn" or "Cmp" or "Op"
+                    ? origin with { Name = name, TypeParameters = typeParameters, Base = bs }
+                    : new(name, typeParameters, origin, null, origin.Kind, SyntaxKind.StaticKeyword);
+            }
+            var cmp1 = derive(template.OriginType, "Cmp", [options.GenericName]);
+            var cmp2 = derive(template.OriginType, "Cmp", [options.GenericName, "C"]);
+            var op1 = derive(template.OriginType, "Op", [options.GenericName]);
 
             if (!options.Switch.HasFlag(TemplateVariants.IComparable))
             {
@@ -566,9 +565,10 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
                     // add modifiers for inner-most nested classes
                     if (name.Containing is not null)
                     {
-                        decl = name.Base is null
-                            ? decl.WithModifiers([F.Token(SyntaxKind.InternalKeyword), F.Token(SyntaxKind.AbstractKeyword), F.Token(SyntaxKind.PartialKeyword)])
-                            : decl.WithModifiers([F.Token(SyntaxKind.InternalKeyword), F.Token(SyntaxKind.NewKeyword), F.Token(SyntaxKind.SealedKeyword), F.Token(SyntaxKind.PartialKeyword)]);
+                        var modifier = f.Select(n => n.TypeName.Modifier).FirstOrDefault(m => m != default);
+                        decl = name.Modifier != default
+                            ? decl.WithModifiers([F.Token(SyntaxKind.InternalKeyword), F.Token(modifier), F.Token(SyntaxKind.PartialKeyword)])
+                            : decl.WithModifiers([F.Token(SyntaxKind.InternalKeyword), F.Token(SyntaxKind.PartialKeyword)]);
                     }
 
                     TypeDeclCore? c = name.Containing;

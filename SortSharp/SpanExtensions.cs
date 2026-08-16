@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using SortSharp.Compat;
+using SortSharp.SourceGeneration;
 
 namespace SortSharp;
 
@@ -109,6 +110,7 @@ internal static partial class SpanExtensions
 #endif
     }
 
+    [Template(nameof(T), null)]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Swap<T>(ref T a, ref T b)
     {
@@ -117,9 +119,11 @@ internal static partial class SpanExtensions
         b = t;
     }
 
+    [Template(nameof(T), null)]
     internal static void SwapBlock<T>(ref T a, ref T b, int length)
     {
-        while (length-- > 0)
+        ref T last = ref Unsafe.Add(ref a, length);
+        while (Unsafe.IsAddressLessThan(in a, in last))
         {
             Swap(ref a, ref b);
             a = ref Unsafe.Inc(ref a);
@@ -127,7 +131,29 @@ internal static partial class SpanExtensions
         }
     }
 
+    [Template(nameof(T), null)]
+    internal static void SwapBlockBackward<T>(ref T a, ref T b, int length)
+    {
+        ref T last = ref Unsafe.Subtract(ref a, length);
+        while (Unsafe.IsAddressGreaterThan(in a, in last))
+        {
+            Swap(ref a, ref b);
+            a = ref Unsafe.Dec(ref a);
+            b = ref Unsafe.Dec(ref b);
+        }
+    }
+
+    [Template(nameof(T), null, nameof(_), Switch = TemplateVariants.KeyValue)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void SliceToLast<T>(ref Span<T> _) { }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void SliceToLast<T, V>(ref Span<T> a, ref readonly Span<V> b)
+    {
+        if (b.Length < a.Length) a = a.Sub(0, b.Length);
+    }
+
     /// <see cref="https://github.com/scandum/rotate"/>
+    [Template(nameof(T), null)]
     internal static void Rotate<T>(Span<T> span, int left, Span<T> cache = default)
     {
         Debug.Assert(0 <= left && left <= span.Length);

@@ -33,13 +33,14 @@ internal class ItemsRewriter(
 
     public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
     {
+        node = _K.Visit(node) as MethodDeclarationSyntax ?? throw new InvalidOperationException();
         foreach (var p in node.ParameterList.Parameters)
         {
-            if (p.Type?.HasIdentifierName(generic) == true && !_V.Map.ContainsKey(p.Identifier.Text))
+            if (!_V.Map.ContainsKey(p.Identifier.Text) &&
+                p.Type is IdentifierNameSyntax { Identifier.Text: "T" }
+                    or GenericNameSyntax { Identifier.Text: nameof(Span<>) or nameof (ReadOnlySpan<>), TypeArgumentList.Arguments: [IdentifierNameSyntax { Identifier.Text: "T" }] })
                 _RO.Add(p.Identifier.Text); // record the parameter name to avoid repeating it in the body
         }
-
-        node = _K.Visit(node) as MethodDeclarationSyntax ?? throw new InvalidOperationException();
         node = base.VisitMethodDeclaration(node) as MethodDeclarationSyntax ?? throw new InvalidOperationException();
 
         if (node.TypeParameterList?.Parameters.Any() == true)
@@ -69,7 +70,7 @@ internal class ItemsRewriter(
 
     public override SyntaxNode? VisitGenericName(GenericNameSyntax node)
     {
-        return node.Identifier.Text == "TypeTraits" && node.TypeArgumentList.Arguments is [ IdentifierNameSyntax id ] && id.Identifier.Text == generic
+        return node.Identifier.Text is "Context" or "TypeTraits" && node.TypeArgumentList.Arguments is [ IdentifierNameSyntax id ] && id.Identifier.Text == generic
             ? node.WithTypeArgumentList(F.TypeArgumentList([F.ParseTypeName(generic), F.ParseTypeName("V")]))
             : base.VisitGenericName(node);
     }
@@ -83,6 +84,7 @@ internal class ItemsRewriter(
             {
                 ExpressionStatementSyntax e => TransformExpressionStatement(e).Squeeze(),
                 LocalDeclarationStatementSyntax l => TransformLocalDeclarationStatement(l).Squeeze(),
+                UsingStatementSyntax u => TransformUsingStatementStatement(u).Squeeze(),
                 _ => [(StatementSyntax)Visit(stmt)]
             })),
             VisitToken(node.CloseBraceToken));
@@ -157,10 +159,30 @@ internal class ItemsRewriter(
             : throw new InvalidOperationException();
     }
 
+    private bool TestType(TypeSyntax type) => type is IdentifierNameSyntax { Identifier.Text: "T" }
+        or RefTypeSyntax { Type: IdentifierNameSyntax { Identifier.Text: "T" } }
+        or GenericNameSyntax { TypeArgumentList.Arguments: [IdentifierNameSyntax { Identifier.Text: "T" }] }
+        or NullableTypeSyntax { ElementType: GenericNameSyntax { TypeArgumentList.Arguments: [IdentifierNameSyntax { Identifier.Text: "T" }] } };
+
     private IEnumerable<StatementSyntax> TransformLocalDeclarationStatement(LocalDeclarationStatementSyntax node)
     {
         node = base.VisitLocalDeclarationStatement(node) as LocalDeclarationStatementSyntax ?? throw new InvalidOperationException();
-        if (node.Declaration.Type is IdentifierNameSyntax { Identifier.Text: "T" }
+        if (TestType(node.Declaration.Type))
+        {
+            var name = node.Declaration.Variables.Single().Identifier.Text;
+            var name_v = name.Length == 1 ? $"{name}v" : $"{name}_v";
+            _V.Map[name] = name_v;
+            yield return node.WithTrailingTrivia(F.ElasticCarriageReturnLineFeed);
+            yield return _V.Visit(node.WithoutLeadingTrivia()) as LocalDeclarationStatementSyntax ?? throw new InvalidOperationException();
+        }
+        else
+            yield return node;
+    }
+
+    private IEnumerable<UsingStatementSyntax> TransformUsingStatementStatement(UsingStatementSyntax node)
+    {
+        node = base.VisitUsingStatement(node) as UsingStatementSyntax ?? throw new InvalidOperationException();
+        if (node.Declaration?.Type is IdentifierNameSyntax { Identifier.Text: "T" }
             or RefTypeSyntax { Type: IdentifierNameSyntax { Identifier.Text: "T" } }
             or GenericNameSyntax { TypeArgumentList.Arguments: [IdentifierNameSyntax { Identifier.Text: "T" }] }
             or NullableTypeSyntax { ElementType: GenericNameSyntax { TypeArgumentList.Arguments: [IdentifierNameSyntax { Identifier.Text: "T" }] } })
@@ -169,7 +191,7 @@ internal class ItemsRewriter(
             var name_v = name.Length == 1 ? $"{name}v" : $"{name}_v";
             _V.Map[name] = name_v;
             yield return node.WithTrailingTrivia(F.ElasticCarriageReturnLineFeed);
-            yield return _V.Visit(node.WithoutLeadingTrivia()) as LocalDeclarationStatementSyntax ?? throw new InvalidOperationException();
+            yield return _V.Visit(node.WithoutLeadingTrivia()) as UsingStatementSyntax ?? throw new InvalidOperationException();
         }
         else
             yield return node;
@@ -184,9 +206,22 @@ internal class ItemsRewriter(
             node = node
                 .WithArgumentList(F.ArgumentList(F.SeparatedList(
                     node.ArgumentList.Arguments
-                        .SelectMany((arg, a) => b.HasFlag((CallSiteBehaviors)((uint)CallSiteBehaviors.RepeatArgument0 << a))
-                            ? [arg, _V.Visit(arg) as ArgumentSyntax ?? throw new InvalidOperationException()]
-                            : new[] { arg }))))
+                        .SelectMany((arg, a) =>
+                        {
+                            if (b.HasFlag((CallSiteBehaviors)((uint)CallSiteBehaviors.RepeatArgument0 << a)))
+                            {
+                                if (arg.Expression is DeclarationExpressionSyntax de && TestType(de.Type)
+                                    && de.Designation is SingleVariableDesignationSyntax svd)
+                                {
+                                    var name = svd.Identifier.Text;
+                                    var name_v = name.Length == 1 ? $"{name}v" : $"{name}_v";
+                                    _V.Map[name] = name_v;
+                                }
+                                return [ arg, _V.Visit(arg) as ArgumentSyntax ?? throw new InvalidOperationException() ];
+                            }
+                            else
+                                return new[] { arg };
+                        }))))
                 .WithTriviaFrom(node);
         }
 
@@ -237,6 +272,13 @@ internal sealed class IdentifierRewriter(
             : node);
     }
 
+    public override SyntaxNode? VisitSingleVariableDesignation(SingleVariableDesignationSyntax node)
+    {
+        return base.VisitSingleVariableDesignation(Map.TryGetValue(node.Identifier.Text, out var n)
+            ? node.WithIdentifier(F.Identifier(n).WithTriviaFrom(node.Identifier))
+            : node);
+    }
+
     public override SyntaxNode? VisitTypeParameter(TypeParameterSyntax node)
     {
         return base.VisitTypeParameter(node.Identifier.Text == oldTP
@@ -248,7 +290,7 @@ internal sealed class IdentifierRewriter(
     {
         return base.VisitIdentifierName(node.Identifier.Text switch
         {
-            var s when Map.TryGetValue(s, out var n) => node.WithIdentifier(SyntaxFactory.Identifier(n)).WithTriviaFrom(node),
+            var s when Map.TryGetValue(s, out var n) => node.WithIdentifier(F.Identifier(n)).WithTriviaFrom(node),
             var s when s == oldTP => node.WithIdentifier(_tp).WithTriviaFrom(node),
             _ => node
         });

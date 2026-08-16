@@ -1,4 +1,5 @@
 ## Credits
+* [GrailSort](https://github.com/HolyGrailSortProject/Rewritten-Grailsort)
 * [ipnsort](https://github.com/Voultapher/sort-research-rs/tree/main/ipnsort/src)
 * [pdqsort](https://github.com/orlp/pdqsort)
 * [WikiSort](https://github.com/BonzaiThePenguin/WikiSort)

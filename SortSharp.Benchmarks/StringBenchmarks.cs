@@ -107,11 +107,23 @@ public partial class StringBenchmarks
     }
 
     [Benchmark]
-    [Arguments(MemoryPolicy.None)]
-    [Arguments(MemoryPolicy.Fixed)]
-    [Arguments(MemoryPolicy.Balanced)]
-    [Arguments(MemoryPolicy.Maximum)]
-    public void WikiSort(MemoryPolicy Variant)
+    [Arguments(MemoryProfile.Minimum)]
+    [Arguments(MemoryProfile.Baseline)]
+    [Arguments(MemoryProfile.High)]
+    public void GrailSort(MemoryProfile Variant)
+    {
+        if (Order == OrderType.Ordinal)
+            buffer.GrailSort(StringComparer.Ordinal, Variant);
+        else
+            buffer.GrailSort(Variant);
+    }
+
+    [Benchmark]
+    [Arguments(MemoryProfile.Minimum)]
+    [Arguments(MemoryProfile.Baseline)]
+    [Arguments(MemoryProfile.High)]
+    [Arguments(MemoryProfile.Maximum)]
+    public void WikiSort(MemoryProfile Variant)
     {
         if (Order == OrderType.Ordinal)
             buffer.WikiSort(StringComparer.Ordinal, Variant);

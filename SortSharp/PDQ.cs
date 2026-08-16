@@ -103,7 +103,7 @@ public static partial class Extensions
 /// <see cref="https://github.com/orlp/pdqsort"/>
 /// <seealso cref="https://gist.github.com/hez2010/6b52929ee1755788c34818972c46aefb"/>
 [TemplateClass(IsUnstable = true)]
-internal abstract partial class PDQ : SortBase
+internal static partial class PDQ
 {
     // Partitions below this size are sorted using insertion sort.
     private const int InsertionSortThreshold = 24;
@@ -125,7 +125,7 @@ internal abstract partial class PDQ : SortBase
         return new Span<byte>((void*)p, CacheLineSize);
     }
 
-    internal new sealed partial class Fn<T> : SortBase.Fn<T>
+    internal abstract partial class Fn<T> : SortBase.Fn<T>
     {
         // Sorts [start, end) using insertion sort with the given comparison function. Assumes
         // *(start - 1) is an element smaller than or equal to any element in [start, end).
@@ -199,6 +199,16 @@ internal abstract partial class PDQ : SortBase
             }
 
             return true;
+        }
+        
+        // Sorts the elements *a, *b and *c using comparison function comp.
+        [Template(nameof(T), nameof(comp), nameof(a), nameof(b), nameof(c))]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static void Sort3U(ref T a, ref T b, ref T c, Comparison<T> comp)
+        {
+            CmpEx(ref a, ref b, comp);
+            CmpEx(ref b, ref c, comp);
+            CmpEx(ref a, ref b, comp);
         }
     }
 
@@ -501,7 +511,7 @@ internal abstract partial class PDQ : SortBase
         }
 
         [Template(nameof(T), nameof(comp), nameof(span))]
-        static void SortLoop(Span<T> span, Comparison<T> comp, int badAllowed, bool leftmost = true)
+        static void SortRec(Span<T> span, Comparison<T> comp, int badAllowed, bool leftmost = true)
         {
             while (true)
             {
@@ -600,7 +610,7 @@ internal abstract partial class PDQ : SortBase
 
                 // Sort the left partition first using recursion and do tail recursion elimination for
                 // the right-hand partition.
-                SortLoop(span.Sub(0, pivot), comp, badAllowed, leftmost);
+                SortRec(span.Sub(0, pivot), comp, badAllowed, leftmost);
                 span = span.Sub(pivot + 1, size);
                 leftmost = false;
             }
@@ -610,7 +620,7 @@ internal abstract partial class PDQ : SortBase
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Sort(Span<T> span, Comparison<T> comp)
         {
-            SortLoop(span, comp, BitOperations.Log2((uint)span.Length));
+            SortRec(span, comp, BitOperations.Log2((uint)span.Length));
         }
     }
 }
