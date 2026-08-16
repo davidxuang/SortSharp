@@ -155,7 +155,7 @@ internal static partial class Wiki
         public int End;
     }
 
-    internal abstract partial class Fn<T> : SortBase.Fn<T>
+    internal sealed partial class Fn<T> : SortBase.Fn<T>
     {
         [Template(nameof(T), nameof(comp))]
         static int FindFirstForward(ReadOnlySpan<T> span, int start, int end, ref readonly T value, Comparison<T> comp, int unique)

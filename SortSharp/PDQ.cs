@@ -125,7 +125,7 @@ internal static partial class PDQ
         return new Span<byte>((void*)p, CacheLineSize);
     }
 
-    internal abstract partial class Fn<T> : SortBase.Fn<T>
+    internal sealed partial class Fn<T> : SortBase.Fn<T>
     {
         // Sorts [start, end) using insertion sort with the given comparison function. Assumes
         // *(start - 1) is an element smaller than or equal to any element in [start, end).

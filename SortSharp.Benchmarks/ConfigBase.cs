@@ -1,69 +1,91 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Linq;
-using System.Reflection;
-using BenchmarkDotNet.Attributes;
+using System.Numerics;
 using BenchmarkDotNet.Configs;
+using BenchmarkDotNet.Engines;
 using BenchmarkDotNet.Filters;
 using BenchmarkDotNet.Jobs;
+using BenchmarkDotNet.Reports;
 using BenchmarkDotNet.Running;
 
 namespace SortSharp.Benchmarks;
 
 internal abstract class ConfigBase : ManualConfig
 {
-    public ConfigBase(int[] sizes)
+    public ConfigBase()
     {
         Orderer = new Orderer();
 
-        var job = Job.Default
-            .WithEnvironmentVariable("DOTNET_TieredPgo", "1")
+        AddJob(Job.Default
+            .WithEnvironmentVariable("MinWarmupTime", "4000")
+            .WithEngineFactory(new TimedWarmupEngineFactory())
+            .WithWarmupCount(2)
             .WithMinIterationCount(16)
             .WithMaxIterationCount(256)
-            .WithMaxRelativeError(0.01);
+            .WithMaxRelativeError(0.01));
 
-        foreach(var count in sizes
-            .Select(GetWarpupCount)
-            .Distinct()
-            .Order())
-        {
-            AddJob(job.WithId($"W{count}")
-                .WithMinWarmupCount(count)
-                .WithMaxWarmupCount(count * 4));
-        }
-
-        HideColumns(
-            "Job",
-            "MinWarmupIterationCount",
-            "MaxWarmupIterationCount");
         // WithOptions(ConfigOptions.DisableOptimizationsValidator);
     }
+}
 
-    private static int GetWarpupCount(int size)
+public sealed class TimedWarmupEngineFactory : IEngineFactory
+{
+    private sealed class HostWrapper(IHost _host) : IHost
     {
-        size = Math.Max(size, 2);
-        return Math.Max((int)Math.Ceiling(Math.Pow(2, 25) / size / Math.Log2(size)), 16);
+        public bool Drop { get; set; }
+
+        public void Dispose() => _host.Dispose();
+        public void ReportResults(RunResults runResults) => _host.ReportResults(runResults);
+        public void SendError(string message) => _host.SendError(message);
+        public void SendSignal(HostSignal hostSignal) => _host.SendSignal(hostSignal);
+        public void Write(string message) { if (!Drop) _host.Write(message); }
+        public void WriteLine() { if (!Drop) _host.WriteLine(); }
+        public void WriteLine(string message) { if (!Drop) _host.WriteLine(message); }
     }
 
-    protected static int[] GetSizesFromField(FieldInfo field)
+    public IEngine CreateReadyToRun(EngineParameters parameters)
     {
-        if (field.FieldType != typeof(int))
-            throw new ArgumentException(
-                $"Field '{field.Name}' must be of type {nameof(Int32)}.",
-                nameof(field));
-        var attribute = field.GetCustomAttribute<ParamsAttribute>()
-            ?? throw new ArgumentException(
-                $"Field '{field.Name}' does not have a {nameof(ParamsAttribute)}.",
-                nameof(field));
-        return [.. attribute.Values.Cast<int>()];
+        var minimumTime = parameters.TargetJob.Environment.EnvironmentVariables?.FirstOrDefault(v => v.Key == "MinWarmupTime")?.Value is string s && int.TryParse(s, out var ms)
+            ? TimeSpan.FromMilliseconds(ms)
+            : TimeSpan.FromSeconds(4);
+        var clock = parameters.TargetJob.ResolveValue(
+            InfrastructureMode.ClockCharacteristic,
+            EngineParameters.DefaultResolver);
+
+        var host = parameters.Host;
+        var wrapper = new HostWrapper(host);
+        parameters.Host = wrapper;
+        IEngine engine = new EngineFactory().CreateReadyToRun(parameters);
+
+        wrapper.Drop = true;
+        try
+        {
+            int index;
+            Measurement measurement = default;
+            var stopwatch = Stopwatch.StartNew();
+            for (index = 1; stopwatch.Elapsed <= minimumTime; index++)
+            {
+                measurement = engine.RunIteration(new IterationData(IterationMode.Workload, IterationStage.Warmup, index, 1, 1));
+                if (BitOperations.IsPow2(index)) host.WriteLine(measurement.ToString());
+            }
+            if (!BitOperations.IsPow2(index - 1)) host.WriteLine(measurement.ToString());
+            host.WriteLine();
+        }
+        finally
+        {
+            wrapper.Drop = false;
+        }
+
+        return engine;
     }
-    internal static string GetJobIdBySize(int size)
-        => $"W{GetWarpupCount(size)}";
 }
 
 internal abstract class FilterBase<T> : IFilter
 {
     public bool Predicate(BenchmarkCase benchmarkCase)
     {
+        string name = benchmarkCase.Descriptor.WorkloadMethod.Name;
         int size = (int)benchmarkCase.Parameters.Items
             .Single(p => p.Name == "Size")
             .Value;
@@ -74,19 +96,19 @@ internal abstract class FilterBase<T> : IFilter
             .FirstOrDefault(p => p.Name == "Variant")
             ?.Value;
 
-        if (ConfigBase.GetJobIdBySize(size) != benchmarkCase.Job.Id)
-            return false;
-
         if (size < GetMinimumSize(pattern))
             return false;
 
         // filter policies
-        if (variant is MemoryPolicy policy)
+        if (variant is MemoryProfile profile)
         {
-            return policy switch
+            return profile switch
             {
-                MemoryPolicy.Maximum => (size + 1) / 2 > 512,
-                MemoryPolicy.Balanced => (int)Math.Sqrt((size + 1) / 2) + 1 > 512,
+                MemoryProfile.Maximum when name.StartsWith(nameof(Wiki)) => (size + 1) / 2 > 512,
+                MemoryProfile.Maximum => false,
+                MemoryProfile.High when name.StartsWith(nameof(Wiki)) => (int)Math.Sqrt((size + 1) / 2) + 1 > 512,
+                MemoryProfile.High when name.StartsWith(nameof(Grail)) => size > 512 * 512,
+                MemoryProfile.High => false,
                 _ => true,
             };
         }

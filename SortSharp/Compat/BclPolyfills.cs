@@ -20,21 +20,21 @@ internal static partial class BclPolyfills
 #if !NET8_0_OR_GREATER
     extension(ArgumentOutOfRangeException)
     {
-        internal static void ThrowIfNotEqual<T>(T value, T other, string? paramName = default)
+        internal static void ThrowIfNotEqual<T>(T value, T other, [CallerArgumentExpression(nameof(value))] string? paramName = default)
             where T : IEquatable<T>
         {
             if (!value.Equals(other))
                 throw new ArgumentOutOfRangeException(paramName);
         }
 
-        internal static void ThrowIfLessThan<T>(T value, T min, string? paramName = default)
+        internal static void ThrowIfLessThan<T>(T value, T min, [CallerArgumentExpression(nameof(value))] string? paramName = default)
             where T : IComparable<T>
         {
             if (value.CompareTo(min) < 0)
                 throw new ArgumentOutOfRangeException(paramName);
         }
 
-        internal static void ThrowIfGreaterThan<T>(T value, T max, string? paramName = default)
+        internal static void ThrowIfGreaterThan<T>(T value, T max, [CallerArgumentExpression(nameof(value))] string? paramName = default)
             where T : IComparable<T>
         {
             if (value.CompareTo(max) > 0)

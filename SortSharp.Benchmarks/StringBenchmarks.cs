@@ -134,7 +134,6 @@ public partial class StringBenchmarks
     private class Config : ConfigBase
     {
         public Config()
-            : base(GetSizesFromField(typeof(StringBenchmarks).GetField(nameof(Size))))
         {
             AddFilter(new Filter());
         }

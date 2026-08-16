@@ -142,7 +142,6 @@ public partial class DoubleBenchmarks
     private class Config : ConfigBase
     {
         public Config()
-            : base(GetSizesFromField(typeof(DoubleBenchmarks).GetField(nameof(Size))))
         {
             AddFilter(new Filter());
         }

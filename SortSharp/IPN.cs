@@ -141,7 +141,7 @@ internal static partial class IPN
     ref partial struct ScratchN<T>;
 #endif
 
-    internal abstract partial class Fn<T> : SortBase.Fn<T>
+    internal sealed partial class Fn<T> : SortBase.Fn<T>
     {
         [Template(nameof(T), "comp", Switch = TemplateVariants.IComparisonOperators)]
         static int SmallSortThreshold() => Unsafe.SizeOf<T>() * SmallSortGeneralScratchLen > MaxStackArraySize

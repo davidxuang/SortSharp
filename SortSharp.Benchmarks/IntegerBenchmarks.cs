@@ -113,7 +113,6 @@ public partial class IntegerBenchmarks
     private class Config : ConfigBase
     {
         public Config()
-            : base(GetSizesFromField(typeof(IntegerBenchmarks).GetField(nameof(Size))))
         {
             AddFilter(new Filter());
         }

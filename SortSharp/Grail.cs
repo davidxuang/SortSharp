@@ -139,7 +139,7 @@ internal static partial class Grail
         }
     }
 
-    internal abstract partial class Fn<T> : SortBase.Fn<T>
+    internal sealed partial class Fn<T> : SortBase.Fn<T>
     {
         // cost: 2 * length + idealKeys^2 / 2
         [Template(nameof(T), nameof(comp), nameof(span))]
