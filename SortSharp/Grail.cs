@@ -14,23 +14,35 @@ namespace SortSharp;
 
 public static partial class Extensions
 {
+    /// <inheritdoc cref="GrailSort{T, TComparer}(Span{T}, TComparer, MemoryProfile)" />
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void GrailSort<T>(this Span<T> span, MemoryProfile profile = MemoryProfile.Baseline)
         => GrailSort<T, IComparer<T>?>(span, (IComparer<T>?)null, profile);
 
+    /// <inheritdoc cref="GrailSort{T, TComparer}(Span{T}, TComparer, MemoryProfile)" />
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void GrailSort<T>(this Span<T> span, IComparer<T>? comparer = null, MemoryProfile profile = MemoryProfile.Baseline)
         => GrailSort<T, IComparer<T>?>(span, comparer, profile);
 
-    public static void GrailSort<T>(this Span<T> span, Comparison<T> compare, MemoryProfile profile = MemoryProfile.Baseline)
+    /// <inheritdoc cref="GrailSort{T, TComparer}(Span{T}, TComparer, MemoryProfile)" />
+    public static void GrailSort<T>(this Span<T> span, Comparison<T> comparer, MemoryProfile profile = MemoryProfile.Baseline)
     {
-        ArgumentNullException.ThrowIfNull(compare, nameof(compare));
+        ArgumentNullException.ThrowIfNull(comparer, nameof(comparer));
 
         if (span.Length <= 1)
             return;
-        Grail.Fn<T>.Sort(span, compare, profile);
+        Grail.Fn<T>.Sort(span, comparer, profile);
     }
 
+    /// <summary>
+    /// Sorts the elements in the span using the <see href="https://github.com/HolyGrailSortProject/Rewritten-Grailsort">GrailSort</see> algorithm,
+    /// which is a <see href="https://en.wikipedia.org/wiki/Sorting_algorithm#Stability">stable</see> block merge sort algorithm.
+    /// </summary>
+    /// <typeparam name="T">The type of elements.</typeparam>
+    /// <typeparam name="TComparer">The type of the comparer.</typeparam>
+    /// <param name="span">The span to sort.</param>
+    /// <param name="comparer">The comparer to use for sorting.</param>
+    /// <param name="profile">The profile to use for allocating temporary cache. A fixed limit is applied with the default profile.</param>
     public static void GrailSort<T, TComparer>(this Span<T> span, TComparer comparer, MemoryProfile profile = MemoryProfile.Baseline)
         where TComparer : IComparer<T>?
     {
@@ -46,24 +58,35 @@ public static partial class Extensions
             Grail.Cmp<T, IComparer<T>>.Sort(span, (IComparer<T>?)comparer ?? Comparer<T>.Default, profile);
     }
 
+    /// <inheritdoc cref="GrailSort{K, V, TComparer}(Span{K}, Span{V}, TComparer, MemoryProfile)" />
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void GrailSort<K, V>(this Span<K> keys, Span<V> items, MemoryProfile profile = MemoryProfile.Baseline)
         => GrailSort<K, V, IComparer<K>?>(keys, items, null, profile);
 
+    /// <inheritdoc cref="GrailSort{K, V, TComparer}(Span{K}, Span{V}, TComparer, MemoryProfile)" />
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void GrailSort<K, V>(this Span<K> keys, Span<V> items, IComparer<K>? comparer = null, MemoryProfile profile = MemoryProfile.Baseline)
         => GrailSort<K, V, IComparer<K>?>(keys, items, comparer, profile);
 
-    public static void GrailSort<K, V>(this Span<K> keys, Span<V> items, Comparison<K> compare, MemoryProfile profile = MemoryProfile.Baseline)
+    /// <inheritdoc cref="GrailSort{K, V, TComparer}(Span{K}, Span{V}, TComparer, MemoryProfile)" />
+    public static void GrailSort<K, V>(this Span<K> keys, Span<V> items, Comparison<K> comparer, MemoryProfile profile = MemoryProfile.Baseline)
     {
         ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
-        ArgumentNullException.ThrowIfNull(compare, nameof(compare));
+        ArgumentNullException.ThrowIfNull(comparer, nameof(comparer));
 
         if (keys.Length <= 1)
             return;
-        Grail.Fn<K>.Sort(keys, items, compare, profile);
+        Grail.Fn<K>.Sort(keys, items, comparer, profile);
     }
 
+#pragma warning disable CS1573
+    /// <typeparam name="K">The type of the keys.</typeparam>
+    /// <typeparam name="V">The type of the values.</typeparam>
+    /// <typeparam name="TComparer">The type of the comparer for the keys.</typeparam>
+    /// <param name="keys">The span of keys to sort.</param>
+    /// <param name="items">The span of values to sort.</param>
+    /// <param name="comparer">The comparer to use for sorting the keys.</param>
+    /// <inheritdoc cref="GrailSort{T, TComparer}(Span{T}, TComparer, MemoryProfile)" />
     public static void GrailSort<K, V, TComparer>(this Span<K> keys, Span<V> items, TComparer comparer, MemoryProfile profile = MemoryProfile.Baseline)
         where TComparer : IComparer<K>?
     {
@@ -81,8 +104,8 @@ public static partial class Extensions
             Grail.Cmp<K, IComparer<K>>.Sort(keys, items, (IComparer<K>?)comparer ?? Comparer<K>.Default, profile);
     }
 }
+#pragma warning restore CS1573
 
-/// <remarks><see href="https://github.com/HolyGrailSortProject/Rewritten-Grailsort"/></remarks>
 [Sort(Properties = SortProperties.Stable, Disable = DefaultOverloads.IComparisonOperators)]
 internal static partial class Grail
 {

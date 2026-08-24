@@ -2,6 +2,7 @@
 
 namespace SortSharp;
 
+/// <remarks><see cref="MemoryProfile.Baseline"/></remarks>
 public enum MemoryProfile : sbyte
 {
     /// <summary>
@@ -19,11 +20,11 @@ public enum MemoryProfile : sbyte
     /// <summary>
     /// Allows allocating a temporary heap buffer whose size is at most sublinear in the input length.
     /// </summary>
-    Medium = 0x30,
+    Medium = 61,
 
     /// <summary>
     /// Allows allocating a temporary heap buffer whose size may be linear in the input length,
     /// when required for performance.
     /// </summary>
-    High = 0x40,
+    High = 121,
 }

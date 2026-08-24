@@ -7,10 +7,18 @@ namespace SortSharp.Compat;
 
 internal static partial class BclPolyfills
 {
+    extension(ArgumentException)
+    {
+        internal static void ThrowIf(bool predicate, string? message = default, string? paramName = default)
+        {
+            if (predicate) throw new ArgumentException(message, paramName);
+        }
+    }
+
 #if !NET6_0_OR_GREATER
     extension(ArgumentNullException)
     {
-        internal static void ThrowIfNull(object? value, string? paramName = default)
+        internal static void ThrowIfNull(object? value, [CallerArgumentExpression(nameof(value))] string? paramName = default)
         {
             if (value is null) throw new ArgumentNullException(paramName);
         }

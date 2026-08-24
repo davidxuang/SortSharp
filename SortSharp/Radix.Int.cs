@@ -14,6 +14,11 @@ namespace SortSharp;
 public static partial class Extensions
 {
 #if NET7_0_OR_GREATER
+    /// <summary>
+    /// Sorts the elements using the least significant digit (LSD) radix sort algorithm,
+    /// which is <see href="https://en.wikipedia.org/wiki/Sorting_algorithm#Stability">stable</see>.
+    /// </summary>
+    /// <inheritdoc cref="RadixMsdSort{T}(Span{T}, int, MemoryProfile)" />
     public static void RadixLsdSort<T>(this Span<T> span, int bitWidth = 8)
         where T : unmanaged, IBinaryInteger<T>, IMinMaxValue<T>
     {
@@ -22,6 +27,14 @@ public static partial class Extensions
         Radix.Int<T>.LsdSort(span, bitWidth);
     }
 
+    /// <summary>
+    /// Sorts the elements using the most significant digit (MSD) radix sort algorithm,
+    /// which is <see href="https://en.wikipedia.org/wiki/Sorting_algorithm#Stability">stable</see> only if <paramref name="profile"/> is <see cref="MemoryProfile.High" /> or higher.
+    /// </summary>
+    /// <typeparam name="T">The type of elements.</typeparam>
+    /// <param name="span">The span to sort.</param>
+    /// <param name="bitWidth">The number of bits to sort at each iteration.</param>
+    /// <param name="profile">The profile to use for allocating temporary cache. A fixed limit is applied with the default profile.</param>
     public static void RadixMsdSort<T>(this Span<T> span, int bitWidth = 8, MemoryProfile profile = MemoryProfile.Baseline)
         where T : unmanaged, IBinaryInteger<T>, IMinMaxValue<T>
     {
@@ -30,24 +43,41 @@ public static partial class Extensions
         Radix.Int<T>.MsdSort(span, bitWidth, profile);
     }
 
-    public static void RadixLsdSort<T, V>(this Span<T> keys, Span<V> items, int bitWidth = 8)
-        where T : unmanaged, IBinaryInteger<T>, IMinMaxValue<T>
+#pragma warning disable CS1573
+    /// <typeparam name="K">The type of the keys.</typeparam>
+    /// <typeparam name="V">The type of the values.</typeparam>
+    /// <param name="keys">The span of keys to sort.</param>
+    /// <param name="items">The span of values to sort.</param>
+    /// <inheritdoc cref="RadixLsdSort{T}(Span{T}, int)" />
+    public static void RadixLsdSort<K, V>(this Span<K> keys, Span<V> items, int bitWidth = 8)
+        where K : unmanaged, IBinaryInteger<K>, IMinMaxValue<K>
     {
         ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
         ArgumentOutOfRangeException.ThrowIfLessThan(bitWidth, 2);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(bitWidth, 12);
-        Radix.Int<T>.LsdSort(keys, items, bitWidth);
+        Radix.Int<K>.LsdSort(keys, items, bitWidth);
     }
 
-    public static void RadixMsdSort<T, V>(this Span<T> keys, Span<V> items, int bitWidth = 8, MemoryProfile profile = MemoryProfile.Baseline)
-        where T : unmanaged, IBinaryInteger<T>, IMinMaxValue<T>
+    /// <typeparam name="K">The type of the keys.</typeparam>
+    /// <typeparam name="V">The type of the values.</typeparam>
+    /// <param name="keys">The span of keys to sort.</param>
+    /// <param name="items">The span of values to sort.</param>
+    /// <inheritdoc cref="RadixMsdSort{T}(Span{T}, int, MemoryProfile)" />
+    public static void RadixMsdSort<K, V>(this Span<K> keys, Span<V> items, int bitWidth = 8, MemoryProfile profile = MemoryProfile.Baseline)
+        where K : unmanaged, IBinaryInteger<K>, IMinMaxValue<K>
     {
         ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
         ArgumentOutOfRangeException.ThrowIfLessThan(bitWidth, 2);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(bitWidth, 12);
-        Radix.Int<T>.MsdSort(keys, items, bitWidth, profile);
+        Radix.Int<K>.MsdSort(keys, items, bitWidth, profile);
     }
+#pragma warning restore CS1573
 #else
+    /// <summary>
+    /// Sorts the elements using the least significant digit (LSD) radix sort algorithm,
+    /// which is <see href="https://en.wikipedia.org/wiki/Sorting_algorithm#Stability">stable</see>.
+    /// </summary>
+    /// <inheritdoc cref="RadixMsdSort(Span{sbyte}, int, MemoryProfile)" />
     [SpecializationTemplate("sbyte")]
     public static void RadixLsdSort(this Span<sbyte> span, int bitWidth = 8)
     {
@@ -56,6 +86,13 @@ public static partial class Extensions
         Radix.Int<sbyte>.LsdSort(span, bitWidth);
     }
 
+    /// <summary>
+    /// Sorts the elements using the most significant digit (MSD) radix sort algorithm,
+    /// which is <see href="https://en.wikipedia.org/wiki/Sorting_algorithm#Stability">stable</see> only if <paramref name="profile"/> is <see cref="MemoryProfile.High" /> or higher.
+    /// </summary>
+    /// <param name="span">The span to sort.</param>
+    /// <param name="bitWidth">The number of bits to sort at each iteration.</param>
+    /// <param name="profile">The profile to use for allocating temporary cache. A fixed limit is applied with the default profile.</param>
     [SpecializationTemplate("sbyte")]
     public static void RadixMsdSort(this Span<sbyte> span, int bitWidth = 8, MemoryProfile profile = MemoryProfile.Baseline)
     {
@@ -64,6 +101,10 @@ public static partial class Extensions
         Radix.Int<sbyte>.MsdSort(span, bitWidth, profile);
     }
 
+    /// <typeparam name="V">The type of the values.</typeparam>
+    /// <param name="keys">The span of keys to sort.</param>
+    /// <param name="items">The span of values to sort.</param>
+    /// <inheritdoc cref="RadixLsdSort(Span{sbyte}, int)" />
     [SpecializationTemplate("sbyte")]
     public static void RadixLsdSort<V>(this Span<sbyte> keys, Span<V> items, int bitWidth = 8)
     {
@@ -73,6 +114,10 @@ public static partial class Extensions
         Radix.Int<sbyte>.LsdSort(keys, items, bitWidth);
     }
 
+    /// <typeparam name="V">The type of the values.</typeparam>
+    /// <param name="keys">The span of keys to sort.</param>
+    /// <param name="items">The span of values to sort.</param>
+    /// <inheritdoc cref="RadixMsdSort(Span{sbyte}, int, MemoryProfile)" />
     [SpecializationTemplate("sbyte")]
     public static void RadixMsdSort<V>(this Span<sbyte> keys, Span<V> items, int bitWidth = 8, MemoryProfile profile = MemoryProfile.Baseline)
     {

@@ -14,33 +14,49 @@ namespace SortSharp;
 public static partial class Extensions
 {
 #if NET7_0_OR_GREATER
+    /// <inheritdoc cref="LowerBound{T, TComparer}(ReadOnlySpan{T}, in T, TComparer)"/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int LowerBound<T>(this ReadOnlySpan<T> span, in T value)
         where T : unmanaged, IComparisonOperators<T, T, bool>
         => ComparisonOperations.Op<T>.LowerBound(span, value);
-
+        
+    /// <inheritdoc cref="UpperBound{T, TComparer}(ReadOnlySpan{T}, in T, TComparer)"/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int UpperBound<T>(this ReadOnlySpan<T> span, in T value)
         where T : unmanaged, IComparisonOperators<T, T, bool>
         => ComparisonOperations.Op<T>.UpperBound(span, value);
 #endif
 
+    /// <inheritdoc cref="LowerBound{T, TComparer}(ReadOnlySpan{T}, in T, TComparer)"/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int LowerBound<T>(this ReadOnlySpan<T> span, in T value, IComparer<T>? comparer = null)
         => LowerBound(span, value, comparer);
 
+    /// <inheritdoc cref="UpperBound{T, TComparer}(ReadOnlySpan{T}, in T, TComparer)"/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int UpperBound<T>(this ReadOnlySpan<T> span, in T value, IComparer<T>? comparer = null)
         => UpperBound(span, value, comparer);
 
+    /// <inheritdoc cref="LowerBound{T, TComparer}(ReadOnlySpan{T}, in T, TComparer)"/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static int LowerBound<T>(this ReadOnlySpan<T> span, in T value, Comparison<T> compare)
-        => ComparisonOperations.Fn<T>.LowerBound(span, value, compare);
+    public static int LowerBound<T>(this ReadOnlySpan<T> span, in T value, Comparison<T> comparer)
+        => ComparisonOperations.Fn<T>.LowerBound(span, value, comparer);
 
+    /// <inheritdoc cref="UpperBound{T, TComparer}(ReadOnlySpan{T}, in T, TComparer)"/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static int UpperBound<T>(this ReadOnlySpan<T> span, in T value, Comparison<T> compare)
-        => ComparisonOperations.Fn<T>.UpperBound(span, value, compare);
+    public static int UpperBound<T>(this ReadOnlySpan<T> span, in T value, Comparison<T> comparer)
+        => ComparisonOperations.Fn<T>.UpperBound(span, value, comparer);
 
+    /// <summary>
+    /// Searches for the first element in the span which is not ordered before <paramref name="value"/>.
+    /// </summary>
+    /// <typeparam name="T">The type of elements.</typeparam>
+    /// <typeparam name="TComparer">The type of the comparer.</typeparam>
+    /// <param name="span">The elements to examine, which must be sorted according to the specified comparer.</param>
+    /// <param name="value">The value to compare the elements to.</param>
+    /// <param name="comparer">The comparer to use for comparison.</param>
+    /// <returns>The index of the first element in the span which is not ordered before <paramref name="value"/>, or <paramref name="span"/>.Length if no such element is found.</returns>
+    /// <remarks><seealso href="https://en.cppreference.com/cpp/algorithm/lower_bound"/></remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int LowerBound<T, TComparer>(this ReadOnlySpan<T> span, in T value, TComparer comparer)
         where TComparer : IComparer<T>?
@@ -57,6 +73,16 @@ public static partial class Extensions
             return ComparisonOperations.Cmp<T, IComparer<T>>.LowerBound(span, value, comparer);
     }
 
+    /// <summary>
+    /// Searches for the first element in the span which is ordered after <paramref name="value"/>.
+    /// </summary>
+    /// <typeparam name="T">The type of elements.</typeparam>
+    /// <typeparam name="TComparer">The type of the comparer.</typeparam>
+    /// <param name="span">The elements to examine, which must be sorted according to the specified comparer.</param>
+    /// <param name="value">The value to compare the elements to.</param>
+    /// <param name="comparer">The comparer to use for comparison.</param>
+    /// <returns>The index of the first element in the span which is ordered after <paramref name="value"/>, or <paramref name="span"/>.Length if no such element is found.</returns>
+    /// <remarks><seealso href="https://en.cppreference.com/cpp/algorithm/upper_bound"/></remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int UpperBound<T, TComparer>(this ReadOnlySpan<T> span, in T value, TComparer comparer)
         where TComparer : IComparer<T>?

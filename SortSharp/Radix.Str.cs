@@ -13,12 +13,26 @@ namespace SortSharp;
 
 public static partial class Extensions
 {
+#if NET7_0_OR_GREATER
+    /// <remarks>The <see cref="StringComparison.Ordinal"/> order is implicitly used.</remarks>
+    /// <inheritdoc cref="RadixMsdSort{T}(Span{T}, Digit, MemoryProfile)" />
+#else
+    /// <remarks>The <see cref="StringComparison.Ordinal"/> order is implicitly used.</remarks>
+    /// <inheritdoc cref="RadixMsdSort(Span{long}, Digit, MemoryProfile)" />
+#endif
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void RadixMsdSort(this Span<string> span, MemoryProfile profile = MemoryProfile.Baseline)
     {
         Radix.Str.MsdSort(span, profile);
     }
 
+#if NET7_0_OR_GREATER
+    /// <remarks>The <see cref="StringComparison.Ordinal"/> order is implicitly used.</remarks>
+    /// <inheritdoc cref="RadixMsdSort{K, V}(Span{K}, Span{V}, Digit, MemoryProfile)" />
+#else
+    /// <remarks>The <see cref="StringComparison.Ordinal"/> order is implicitly used.</remarks>
+    /// <inheritdoc cref="RadixMsdSort{V}(Span{long}, Span{V}, Digit, MemoryProfile)" />
+#endif
     public static void RadixMsdSort<V>(this Span<string> keys, Span<V> items, MemoryProfile profile = MemoryProfile.Baseline)
     {
         ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));

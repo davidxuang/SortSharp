@@ -6,6 +6,16 @@ namespace SortSharp.SourceGeneration;
 
 internal class TrimmingRewriter : CSharpSyntaxRewriter
 {
+    public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
+    {
+        var documentations = node.GetLeadingTrivia()
+            .Where(t => t.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia) || t.IsKind(SyntaxKind.MultiLineDocumentationCommentTrivia));
+        node = base.VisitMethodDeclaration(node) as MethodDeclarationSyntax ?? throw new InvalidOperationException();
+        if (documentations.Any())
+            node = node.WithLeadingTrivia(documentations);
+        return node;
+    }
+
     public override SyntaxNode? VisitAttributeList(AttributeListSyntax node)
     {
         node = node.WithAttributes(SyntaxFactory.SeparatedList(node.Attributes

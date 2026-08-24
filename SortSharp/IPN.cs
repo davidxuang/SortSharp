@@ -14,6 +14,7 @@ namespace SortSharp;
 public static partial class Extensions
 {
 #if NET7_0_OR_GREATER
+    /// <inheritdoc cref="IPNSort{T, TComparer}(Span{T}, TComparer)" />
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void IPNSort<T>(this Span<T> span)
         where T : unmanaged, INumber<T>
@@ -27,19 +28,29 @@ public static partial class Extensions
     }
 #endif
 
+    /// <inheritdoc cref="IPNSort{T, TComparer}(Span{T}, TComparer)" />
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void IPNSort<T>(this Span<T> span, IComparer<T>? comparer = null)
         => IPNSort<T, IComparer<T>?>(span, comparer);
 
-    public static void IPNSort<T>(this Span<T> span, Comparison<T> compare)
+    /// <inheritdoc cref="IPNSort{T, TComparer}(Span{T}, TComparer)" />
+    public static void IPNSort<T>(this Span<T> span, Comparison<T> comparer)
     {
-        ArgumentNullException.ThrowIfNull(compare, nameof(compare));
+        ArgumentNullException.ThrowIfNull(comparer, nameof(comparer));
         if (span.Length <= 1)
             return;
 
-        IPN.Fn<T>.Sort(span, compare);
+        IPN.Fn<T>.Sort(span, comparer);
     }
 
+    /// <summary>
+    /// Sorts the elements in the span using the <see href="https://github.com/Voultapher/sort-research-rs/blob/main/writeup/ipnsort_introduction/text.md">Instruction-Parallel-Network Sort</see> algorithm.
+    /// Branchless partitioning will be used if the element type is unmanaged and implements <see cref="INumber{TSelf}"/>.
+    /// </summary>
+    /// <typeparam name="T">The type of elements.</typeparam>
+    /// <typeparam name="TComparer">The type of the comparer.</typeparam>
+    /// <param name="span">The span to sort.</param>
+    /// <param name="comparer">The comparer to use for sorting.</param>
     public static void IPNSort<T, TComparer>(this Span<T> span, TComparer comparer)
         where TComparer : IComparer<T>?
     {
@@ -56,6 +67,7 @@ public static partial class Extensions
     }
 
 #if NET7_0_OR_GREATER
+    /// <inheritdoc cref="IPNSort{K, V, TComparer}(Span{K}, Span{V}, TComparer)" />
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void IPNSort<K, V>(this Span<K> keys, Span<V> items)
         where K : unmanaged, INumber<K>
@@ -71,20 +83,29 @@ public static partial class Extensions
     }
 #endif
 
+    /// <inheritdoc cref="IPNSort{K, V, TComparer}(Span{K}, Span{V}, TComparer)" />
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void IPNSort<K, V>(this Span<K> keys, Span<V> items, IComparer<K>? comparer = null)
         => IPNSort<K, V, IComparer<K>?>(keys, items, comparer);
 
-    public static void IPNSort<K, V>(this Span<K> keys, Span<V> items, Comparison<K> compare)
+    /// <inheritdoc cref="IPNSort{K, V, TComparer}(Span{K}, Span{V}, TComparer)" />
+    public static void IPNSort<K, V>(this Span<K> keys, Span<V> items, Comparison<K> comparer)
     {
-        ArgumentNullException.ThrowIfNull(compare, nameof(compare));
+        ArgumentNullException.ThrowIfNull(comparer, nameof(comparer));
         ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
 
         if (keys.Length <= 1)
             return;
-        IPN.Fn<K>.Sort(keys, items, compare);
+        IPN.Fn<K>.Sort(keys, items, comparer);
     }
 
+    /// <typeparam name="K">The type of the keys.</typeparam>
+    /// <typeparam name="V">The type of the values.</typeparam>
+    /// <typeparam name="TComparer">The type of the comparer for the keys.</typeparam>
+    /// <param name="keys">The span of keys to sort.</param>
+    /// <param name="items">The span of values to sort.</param>
+    /// <param name="comparer">The comparer to use for sorting the keys.</param>
+    /// <inheritdoc cref="IPNSort{T, TComparer}(Span{T}, TComparer)" />
     public static void IPNSort<K, V, TComparer>(this Span<K> keys, Span<V> items, TComparer comparer)
         where TComparer : IComparer<K>?
     {

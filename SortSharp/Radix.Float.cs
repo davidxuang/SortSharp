@@ -12,13 +12,17 @@ namespace SortSharp;
 public static partial class Extensions
 {
 #if NET7_0_OR_GREATER
+    /// <remarks>IEEE 754 total order is implied, as if <see cref="TotalOrderIeee754Comparer{T}"/> is used.</remarks>
+    /// <inheritdoc cref="RadixLsdSort{T}(Span{T}, int)" />
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void RadixLsdSort<T>(this Span<T> span)
         where T : unmanaged, IBinaryFloatingPointIeee754<T>, IMinMaxValue<T>
     {
         Radix.Float<T>.LsdSort(span);
     }
-    
+
+    /// <remarks>IEEE 754 total order is implied, as if <see cref="TotalOrderIeee754Comparer{T}"/> is used.</remarks>
+    /// <inheritdoc cref="RadixMsdSort{T}(Span{T}, int, MemoryProfile)" />
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void RadixMsdSort<T>(this Span<T> span, MemoryProfile profile = MemoryProfile.Baseline)
         where T : unmanaged, IBinaryFloatingPointIeee754<T>, IMinMaxValue<T>
@@ -26,6 +30,8 @@ public static partial class Extensions
         Radix.Float<T>.MsdSort(span, profile);
     }
 
+    /// <remarks>IEEE 754 total order is implied, as if <see cref="TotalOrderIeee754Comparer{T}"/> is used.</remarks>
+    /// <inheritdoc cref="RadixLsdSort{K, V}(Span{K}, Span{V}, int)" />
     public static void RadixLsdSort<T, V>(this Span<T> keys, Span<V> items)
         where T : unmanaged, IBinaryFloatingPointIeee754<T>, IMinMaxValue<T>
     {
@@ -33,13 +39,17 @@ public static partial class Extensions
         Radix.Float<T>.LsdSort(keys, items);
     }
 
-    public static void RadixMsdSort<T, V>(this Span<T> keys, Span<V> items, MemoryProfile profile = MemoryProfile.Baseline)
-        where T : unmanaged, IBinaryFloatingPointIeee754<T>, IMinMaxValue<T>
+    /// <remarks>IEEE 754 total order is implied, as if <see cref="TotalOrderIeee754Comparer{T}"/> is used.</remarks>
+    /// <inheritdoc cref="RadixMsdSort{K, V}(Span{K}, Span{V}, int, MemoryProfile)" />
+    public static void RadixMsdSort<K, V>(this Span<K> keys, Span<V> items, MemoryProfile profile = MemoryProfile.Baseline)
+        where K : unmanaged, IBinaryFloatingPointIeee754<K>, IMinMaxValue<K>
     {
         ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
-        Radix.Float<T>.MsdSort(keys, items, profile);
+        Radix.Float<K>.MsdSort(keys, items, profile);
     }
 #else
+    /// <remarks>IEEE 754 total order is implied, as if <see cref="TotalOrderIeee754Comparer{T}"/> is used.</remarks>
+    /// <inheritdoc cref="RadixLsdSort(Span{long}, int)" />
     [SpecializationTemplate("double")]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void RadixLsdSort(this Span<double> span)
@@ -47,6 +57,8 @@ public static partial class Extensions
         Radix.Float<double>.LsdSort(span);
     }
 
+    /// <remarks>IEEE 754 total order is implied, as if <see cref="TotalOrderIeee754Comparer{T}"/> is used.</remarks>
+    /// <inheritdoc cref="RadixMsdSort(Span{long}, int, MemoryProfile)" />
     [SpecializationTemplate("double")]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void RadixMsdSort(this Span<double> span, MemoryProfile profile = MemoryProfile.Baseline)
@@ -54,6 +66,8 @@ public static partial class Extensions
         Radix.Float<double>.MsdSort(span, profile);
     }
 
+    /// <remarks>IEEE 754 total order is implied, as if <see cref="TotalOrderIeee754Comparer{T}"/> is used.</remarks>
+    /// <inheritdoc cref="RadixLsdSort{V}(Span{long}, Span{V}, int)" />
     [SpecializationTemplate("double")]
     public static void RadixLsdSort<V>(this Span<double> keys, Span<V> items)
     {
@@ -61,6 +75,8 @@ public static partial class Extensions
         Radix.Float<double>.LsdSort(keys, items);
     }
 
+    /// <remarks>IEEE 754 total order is implied, as if <see cref="TotalOrderIeee754Comparer{T}"/> is used.</remarks>
+    /// <inheritdoc cref="RadixMsdSort{V}(Span{long}, Span{V}, int, MemoryProfile)" />
     [SpecializationTemplate("double")]
     public static void RadixMsdSort<V>(this Span<double> keys, Span<V> items, MemoryProfile profile = MemoryProfile.Baseline)
     {

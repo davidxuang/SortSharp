@@ -9,11 +9,23 @@ using SortSharp.SourceGeneration;
 
 namespace SortSharp;
 
+/// <summary>
+/// Provides extension methods for <see cref="Span{T}"/>.
+/// </summary>
 public static partial class Extensions
 {
+    /// <summary>
+    /// Rotates the elements of the specified <see cref="Span{T}"/> to the left by the specified number of positions.
+    /// </summary>
+    /// <typeparam name="T">The type of elements.</typeparam>
+    /// <param name="span">The span to rotate.</param>
+    /// <param name="left">The number of positions to rotate left.</param>
+    /// <param name="cache">Optional cache span to be used. It does not need to be cleared beforehand, and will not be cleared afterwards.</param>
+    /// <remarks><see href="https://github.com/scandum/rotate"/></remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void Rotate<T>(this Span<T> span, int left, Span<T> cache = default)
     {
+        ArgumentException.ThrowIf(span.Overlaps(cache), "The cache span should not overlap with the input span.", nameof(cache));
         ArgumentOutOfRangeException.ThrowIfLessThan(left, 0, nameof(left));
         ArgumentOutOfRangeException.ThrowIfGreaterThan(left, span.Length, nameof(left));
 
@@ -175,7 +187,6 @@ internal static partial class SpanOperations
         if (b.Length < a.Length) a = a.Sub(0, b.Length);
     }
 
-    /// <remarks><see href="https://github.com/scandum/rotate"/></remarks>
     [OverloadTemplate(nameof(T), null)]
     internal static void Rotate<T>(Span<T> span, int left, Span<T> cache = default)
     {
