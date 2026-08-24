@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -10,23 +11,23 @@ partial class BclPolyfills
     extension(Unsafe)
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool IsNullRef<T>(ref readonly T source)
+        public static bool IsNullRef<T>([AllowNull] ref readonly T source)
             => Unsafe.IsNullRef(ref Unsafe.AsRef(in source));
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static nint ByteOffset<T>(ref readonly T origin, ref readonly T target)
+        public static nint ByteOffset<T>([AllowNull] ref readonly T origin, [AllowNull] ref readonly T target)
             => Unsafe.ByteOffset(ref Unsafe.AsRef(in origin), ref Unsafe.AsRef(in target));
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool AreSame<T>(ref readonly T left, ref readonly T right)
+        public static bool AreSame<T>([AllowNull] ref readonly T left, [AllowNull] ref readonly T right)
             => Unsafe.AreSame(ref Unsafe.AsRef(in left), ref Unsafe.AsRef(in right));
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool IsAddressLessThan<T>(ref readonly T left, ref readonly T right)
+        public static bool IsAddressLessThan<T>([AllowNull] ref readonly T left, [AllowNull] ref readonly T right)
             => Unsafe.IsAddressLessThan(ref Unsafe.AsRef(in left), ref Unsafe.AsRef(in right));
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool IsAddressGreaterThan<T>(ref readonly T left, ref readonly T right)
+        public static bool IsAddressGreaterThan<T>([AllowNull] ref readonly T left, [AllowNull] ref readonly T right)
             => Unsafe.IsAddressGreaterThan(ref Unsafe.AsRef(in left), ref Unsafe.AsRef(in right));
     }
 

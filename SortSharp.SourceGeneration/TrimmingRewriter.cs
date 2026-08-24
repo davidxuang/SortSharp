@@ -9,8 +9,7 @@ internal class TrimmingRewriter : CSharpSyntaxRewriter
     public override SyntaxNode? VisitAttributeList(AttributeListSyntax node)
     {
         node = node.WithAttributes(SyntaxFactory.SeparatedList(node.Attributes
-            .Where(a => a.Name.ToString() != nameof(TemplateAttribute).Replace("Attribute", string.Empty)
-                && a.Name.ToString() != nameof(TemplateAttribute))));
+            .Where(a => !a.Name.ToString().Contains("Template"))));
         return node.Attributes.Count == 0 ? null : node;
     }
 

@@ -13,7 +13,7 @@ namespace SortSharp.Benchmarks;
 internal partial class Orderer : IOrderer
 {
     private static readonly IOrderer Default = DefaultOrderer.Instance;
-    [GeneratedRegex(@",\s*Variant\s*=\s*\w+")]
+    [GeneratedRegex(@",\s*(?:Profile|Width)\s*=\s*\w+")]
     private static partial Regex Re { get; }
 
     public bool SeparateLogicalGroups => Default.SeparateLogicalGroups;
@@ -45,7 +45,8 @@ internal partial class Orderer : IOrderer
             foreach (var benchmark in group
                 .OrderByDescending(bm => bm.Descriptor.Baseline)
                 .ThenBy(bm => bm.Descriptor.WorkloadMethodDisplayInfo)
-                .ThenBy(bm => Convert.ToInt64(bm.Parameters["Variant"] ?? 0)))
+                .ThenBy(bm => Convert.ToInt64(bm.Parameters["Profile"] ?? 0))
+                .ThenBy(bm => Convert.ToInt64(bm.Parameters["Width"] ?? 0)))
                 yield return benchmark;
     }
 }

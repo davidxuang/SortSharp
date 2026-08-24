@@ -92,26 +92,26 @@ public partial class DoubleBenchmarks
     }
 
     [Benchmark]
-    [Arguments(BranchlessVariant.Branchy)]
-    [Arguments(BranchlessVariant.Branchless)]
-    public void IPNSort(BranchlessVariant Variant)
+    [Arguments(BranchlessProfile.Branchy)]
+    [Arguments(BranchlessProfile.Branchless)]
+    public void IPNSort(BranchlessProfile Profile)
     {
         if (Order == OrderType.TotalIeee754)
             buffer.IPNSort(totalComparer);
-        else if (Variant == BranchlessVariant.Branchless)
+        else if (Profile == BranchlessProfile.Branchless)
             buffer.IPNSort();
         else
             IPN.Cmp<double>.Sort(buffer);
     }
 
     [Benchmark]
-    [Arguments(BranchlessVariant.Branchy)]
-    [Arguments(BranchlessVariant.Branchless)]
-    public void PDQSort(BranchlessVariant Variant)
+    [Arguments(BranchlessProfile.Branchy)]
+    [Arguments(BranchlessProfile.Branchless)]
+    public void PDQSort(BranchlessProfile Profile)
     {
         if (Order == OrderType.TotalIeee754)
             buffer.PDQSort(totalComparer);
-        else if (Variant == BranchlessVariant.Branchless)
+        else if (Profile == BranchlessProfile.Branchless)
             buffer.PDQSort();
         else
             PDQ.Cmp<double>.Sort(buffer);
@@ -120,23 +120,41 @@ public partial class DoubleBenchmarks
     [Benchmark]
     [Arguments(MemoryProfile.Minimum)]
     [Arguments(MemoryProfile.Baseline)]
-    [Arguments(MemoryProfile.High)]
-    public void GrailSort(MemoryProfile Variant)
+    [Arguments(MemoryProfile.Medium)]
+    public void GrailSort(MemoryProfile Profile)
     {
-        buffer.GrailSort(Variant);
+        if (Order == OrderType.TotalIeee754)
+            buffer.GrailSort(totalComparer, Profile);
+        else
+            buffer.GrailSort(Profile);
+    }
+
+    [Benchmark]
+    [Arguments(MemoryProfile.Minimum)]
+    [Arguments(MemoryProfile.Baseline)]
+    [Arguments(MemoryProfile.Medium)]
+    [Arguments(MemoryProfile.High)]
+    public void WikiSort(MemoryProfile Profile)
+    {
+        if (Order == OrderType.TotalIeee754)
+            buffer.WikiSort(totalComparer, Profile);
+        else
+            buffer.WikiSort(Profile);
+    }
+
+    [Benchmark]
+    public void RadixLsdSort()
+    {
+        buffer.RadixLsdSort();
     }
 
     [Benchmark]
     [Arguments(MemoryProfile.Minimum)]
     [Arguments(MemoryProfile.Baseline)]
     [Arguments(MemoryProfile.High)]
-    [Arguments(MemoryProfile.Maximum)]
-    public void WikiSort(MemoryProfile Variant)
+    public void RadixMsdSort(MemoryProfile Profile)
     {
-        if (Order == OrderType.TotalIeee754)
-            buffer.WikiSort(totalComparer, Variant);
-        else
-            buffer.WikiSort(Variant);
+        buffer.RadixMsdSort(Profile);
     }
 
     private class Config : ConfigBase
@@ -162,7 +180,10 @@ public partial class DoubleBenchmarks
                 .Single(p => p.Name == nameof(Order))
                 .Value;
 
-            if (order != OrderType.Default && variant is BranchlessVariant.Branchless)
+            if (benchmarkCase.Descriptor.WorkloadMethod.Name.StartsWith(nameof(Radix)) && order != OrderType.TotalIeee754)
+                return false;
+
+            if (order != OrderType.Default && variant is BranchlessProfile.Branchless)
                 return false;
 
             return true;

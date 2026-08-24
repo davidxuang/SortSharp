@@ -1,5 +1,6 @@
 ﻿using System.Collections.Frozen;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -7,12 +8,12 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 using F = Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
-namespace SortSharp.SourceGeneration.Templates;
+namespace SortSharp.SourceGeneration;
 
 [Generator]
-internal sealed class TemplateMethodGenerator : IIncrementalGenerator
+internal sealed partial class OverloadGenerator : IIncrementalGenerator
 {
-    private record struct Capabilities(bool UsesLessThan);
+    private record struct Capabilities(bool ComparisonOperators);
 
     private static readonly CSharpSyntaxRewriter trimmer = new TrimmingRewriter();
 
@@ -20,14 +21,14 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
     {
         var templates = context.SyntaxProvider
             .ForAttributeWithMetadataName(
-                $"{typeof(TemplateAttribute).Namespace}.{nameof(TemplateAttribute)}",
+                $"{typeof(OverloadTemplateAttribute).Namespace}.{nameof(OverloadTemplateAttribute)}",
                 static (node, _) => node is MemberDeclarationSyntax,
-                static (ctx, ct) => AnalyzeTemplate(ctx, ct));
+                static (ctx, ct) => AnalyzeTemplates(ctx, ct));
 
         var capabilities = context.CompilationProvider
             .Select(static (cmpl, _) =>
                 new Capabilities(
-                    UsesLessThan: cmpl.GetTypeByMetadataName(
+                    ComparisonOperators: cmpl.GetTypeByMetadataName(
                         "System.Numerics.IComparisonOperators`3") is not null));
 
         var behaviors = templates
@@ -37,28 +38,33 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
             .Select(static (pairs, _) => BuildBehaviors(pairs))
             .WithComparer(BehaviorMapComparer.Instance);
 
-        var generated = templates
-            .Where(static tmpl => tmpl.Options is not null)
-            .Combine(capabilities)
-            .Combine(behaviors)
-            .SelectMany(static (tuple, ct) =>
-            {
-                var template = tuple.Left.Left;
-                var behaviors = tuple.Right;
-                var capabilities = tuple.Left.Right;
-
-                return GenerateMethods(template, capabilities, behaviors, ct)
-                    .ToImmutableArray();
-            });
-
-        var files = generated
-            .Collect()
-            .Combine(capabilities)
-            .Select(static (tuple, _) =>
-                RenderFiles(tuple.Left, tuple.Right));
+        var targets = context.SyntaxProvider
+            .ForAttributeWithMetadataName(
+                $"{typeof(SortSpecializationAttribute).Namespace}.{nameof(SortSpecializationAttribute)}",
+                static (node, _) => node is MemberDeclarationSyntax,
+                static (ctx, ct) => (ResolveType((ITypeSymbol)ctx.TargetSymbol), GetArgument<string>(ctx.Attributes.Single(), 0)))
+            .Collect();
 
         context.RegisterSourceOutput(
-            files,
+            templates
+                .Combine(behaviors.Combine(capabilities.Combine(targets)))
+                .SelectMany(static (tuple, ct) =>
+                {
+                    var template = tuple.Left;
+                    var behaviors = tuple.Right.Left;
+                    var capabilities = tuple.Right.Right.Left;
+                    var targets = tuple.Right.Right.Right;
+                    return template switch
+                    {
+                        TemplateMethod<BasicOptions> b => GenerateMethods(b, targets, behaviors, ct).ToImmutableArray(),
+                        TemplateMethod<ComparisonOptions> c => GenerateMethods(c, capabilities, behaviors, ct).ToImmutableArray(),
+                        _ => []
+                    };
+                })
+                .Collect()
+                .Combine(capabilities)
+                .Select(static (tuple, _) =>
+                    RenderFiles(tuple.Left, (decl, meta) => TransformSyntax(decl, meta, tuple.Right))),
             static (spc, files) =>
             {
                 foreach (var file in files)
@@ -66,7 +72,8 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
             });
     }
 
-    private record class TypeDeclCore(
+    internal record class TypeDeclCore(
+        string Namespace,
         string Name,
         ImmutableArray<string> TypeParameters,
         TypeDeclCore? Containing = null)
@@ -85,23 +92,25 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
             ? F.QualifiedName(Containing.Syntax, BaseSyntax)
             : BaseSyntax;
     }
-    private sealed record class TypeDecl(
+    internal sealed record class TypeDecl(
+        string Namespace,
         string Name,
         ImmutableArray<string> TypeParameters,
         TypeDeclCore? Containing = null,
         TypeDeclCore? Base = null,
         TypeKind Kind = TypeKind.Class,
-        SyntaxKind Modifier = default) : TypeDeclCore(Name, TypeParameters, Containing);
+        SyntaxKind Modifier = default) : TypeDeclCore(Namespace, Name, TypeParameters, Containing);
 
-    private static TypeDecl ResolveType(ITypeSymbol symbol)
-        => new(symbol.Name,
+    internal static TypeDecl ResolveType(ITypeSymbol symbol)
+        => new(symbol.ContainingNamespace.ToDisplayString(),
+            symbol.Name,
             symbol is INamedTypeSymbol named
                 ? [.. named.TypeParameters.Select(p => p.Name)]
                 : [],
             symbol.ContainingType is not null
                 ? ResolveType(symbol.ContainingType)
                 : null,
-            symbol.BaseType is not null && symbol.BaseType.SpecialType != SpecialType.System_Object
+            symbol.BaseType is not null && symbol.BaseType.SpecialType is not (SpecialType.System_Object or SpecialType.System_ValueType)
                 ? ResolveType(symbol.BaseType)
                 : null,
             symbol.IsValueType ? TypeKind.Struct : TypeKind.Class,
@@ -113,92 +122,106 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
                 _ => default,
             });
 
-    private static T GetNamedArgument<T>(AttributeData? attr, string name, T defaultValue = default!)
+    private static T? GetArgument<T>(AttributeData? attr, int index)
     {
-        if (attr == null) return defaultValue;
-        if (attr.NamedArguments.FirstOrDefault(a => a.Key == name).Value.Value is object obj)
+        if (attr == null) return default;
+        if (index < attr.ConstructorArguments.Length && attr.ConstructorArguments[index].Value is object obj)
             try { return (T)obj; } catch { }
-        return defaultValue;
+        return default;
     }
 
-    private sealed record TemplateMethod(
+    private static ImmutableArray<T> GetArgumentArray<T>(AttributeData? attr, int index)
+    {
+        if (attr == null) return [];
+        if (index < attr.ConstructorArguments.Length)
+            try { return attr.ConstructorArguments[index].Values.Select(a => a.Value).Cast<T>().ToImmutableArray(); } catch { }
+        return [];
+    }
+
+    private static T? GetNamedArgument<T>(AttributeData? attr, string name)
+    {
+        if (attr == null) return default;
+        if (attr.NamedArguments.FirstOrDefault(a => a.Key == name).Value.Value is object obj)
+            try { return (T)obj; } catch { }
+        return default;
+    }
+
+    internal abstract record TemplateMethod(
         MethodDeclarationSyntax Declaration,
         ImmutableArray<string> Usings,
         string OriginFolder,
         string OriginNamespace,
         TypeDecl OriginType,
         string Name,
+        Accessibility Accessibility,
+        CallSiteBehaviors Behavior);
+
+    internal sealed record TemplateMethod<T>(
+        MethodDeclarationSyntax Declaration,
+        ImmutableArray<string> Usings,
+        string OriginFolder,
+        string OriginNamespace,
+        TypeDecl OriginType,
+        string Name,
+        Accessibility Accessibility,
         CallSiteBehaviors Behavior,
-        TemplateOptions? Options);
+        T? Options)
+        : TemplateMethod(Declaration, Usings, OriginFolder, OriginNamespace, OriginType, Name, Accessibility, Behavior)
+        where T : notnull;
 
-    private sealed record TemplateOptions(
-        string GenericName,
-        string? CompareName,
-        ImmutableArray<string> ItemNames,
-        bool IsItemsSpan,
-        TemplateVariants Switch,
-        bool IsPublic,
-        bool IsUnstable);
-
-    private static TemplateMethod AnalyzeTemplate(GeneratorAttributeSyntaxContext ctx, CancellationToken ct)
+    private static TemplateMethod AnalyzeTemplates(GeneratorAttributeSyntaxContext ctx, CancellationToken ct)
     {
         var decl = (MethodDeclarationSyntax)ctx.TargetNode;
-        var symbol = (IMethodSymbol)ctx.TargetSymbol;
+        var symbol = ctx.SemanticModel.GetDeclaredSymbol(decl, ct) ?? throw new InvalidOperationException();
         var attr = ctx.Attributes.Single();
-        var rootClass = symbol.ContainingType;
-        while (rootClass.ContainingType is not null)
-            rootClass = rootClass.ContainingType;
-        var attrClass = rootClass.GetAttributes().FirstOrDefault(a => a.AttributeClass?.Name == nameof(TemplateClassAttribute));
+
+        var usings = decl.SyntaxTree.GetCompilationUnitRoot(ct).Usings.Select(u => u.WithoutTrivia().ToFullString());
+        var ns = symbol.ContainingNamespace.ToDisplayString();
+        var parent = ResolveType(symbol.ContainingType);
 
         IEnumerable<string> segments = decl.SyntaxTree.FilePath.Split('\\', '/');
         segments = segments.Reverse().Skip(1).TakeWhile(s => !s.StartsWith("SortSharp")).Reverse();
-        var relative = string.Join("/", segments);
+        var relative = string.Join("/", segments).Trim().Trim('/');
 
-        TemplateOptions? options;
-        var generic = attr.ConstructorArguments.Length >= 1 ? attr.ConstructorArguments[0].Value as string : null;
-        var compare = attr.ConstructorArguments.Length >= 2 ? attr.ConstructorArguments[1].Value as string : null;
-        var items = attr.ConstructorArguments.Length >= 3 ? attr.ConstructorArguments[2].Values.Select(d => d.Value).Cast<string>().ToImmutableArray() : [];
-        if (string.IsNullOrWhiteSpace(compare) && items.Length == 0)
-        {
-            // metadata-only without template processing
-            options = null;
-        }
-        else
-        {
-            options = new TemplateOptions(
-                generic ?? throw new InvalidOperationException($"Generic name is missing on {symbol.Name}."),
-                compare,
-                items,
-                IsItemsSpan: symbol.Parameters
-                    .Where(p => items.Contains(p.Name))
-                    .Any(p => p.Type.Name == nameof(Span<>) || p.Type.Name == nameof(ReadOnlySpan<>)),
-                Switch: GetNamedArgument<TemplateVariants>(attrClass, nameof(TemplateClassAttribute.Switch))
-                    | GetNamedArgument<TemplateVariants>(attr, nameof(TemplateAttribute.Switch)),
-                IsPublic: symbol.DeclaredAccessibility == Accessibility.Public,
-                IsUnstable: GetNamedArgument<bool>(attrClass, nameof(TemplateClassAttribute.IsUnstable))
-            );
-        }
+        var itemType = GetArgument<string>(attr, 0);
+        var comparer = GetArgument<string>(attr, 1);
+        var itemIds = GetArgumentArray<string>(attr, 2);
+        var isSpan = symbol.Parameters
+            .Where(p => itemIds.Contains(p.Name))
+            .Any(p => p.Type.Name == nameof(Span<>) || p.Type.Name == nameof(ReadOnlySpan<>));
 
         var valid = attr.ConstructorArguments.Reverse().SkipWhile(a => a is { IsNull: true } or { Kind: TypedConstantKind.Array, Values: [] }).Reverse().Count();
         var behavior = attr.ConstructorArguments[..valid] switch
         {
-            [] or [_, _] => CallSiteBehaviors.None,
-            [_] => CallSiteBehaviors.RepeatCall,
-            _ => attr.ConstructorArguments[2].Values.Select(a => symbol.Parameters.IndexOf(symbol.Parameters.First(p => p.Name == (string)a.Value!)))
+            { Length: 1 } when symbol.Parameters.Any(p => p is
+                { Type: ITypeParameterSymbol, RefKind: RefKind.Ref } or // ref T
+                { Type: INamedTypeSymbol { Name: nameof(Span<>), TypeArguments: [ITypeParameterSymbol] } }) // Span<T>
+                => CallSiteBehaviors.RepeatCall,
+            { Length: 3 } => itemIds.Select(a => symbol.Parameters.IndexOf(symbol.Parameters.First(p => p.Name == a)))
                 .Select(i => (uint)CallSiteBehaviors.RepeatArgument0 << i)
                 .Cast<CallSiteBehaviors>()
-                .Aggregate(CallSiteBehaviors.None, (a, b) => a | b)
+                .Aggregate(CallSiteBehaviors.None, (a, b) => a | b),
+            _ => CallSiteBehaviors.None,
         };
 
-        return new TemplateMethod(
-            decl,
-            [.. decl.SyntaxTree.GetCompilationUnitRoot(ct).Usings.Select(u => u.WithoutTrivia().ToFullString())],
-            relative.Trim().Trim('/'),
-            symbol.ContainingNamespace.ToDisplayString(),
-            ResolveType(symbol.ContainingType),
-            symbol.Name,
-            behavior,
-            options);
+        var sortClass = symbol.ContainingType;
+        while (sortClass.ContainingType is not null)
+            sortClass = sortClass.ContainingType;
+        var sortAttr = sortClass.GetAttributes().FirstOrDefault(a => a.AttributeClass?.Name == nameof(SortAttribute));
+
+        var disable = GetNamedArgument<DefaultOverloads>(sortAttr, nameof(SortAttribute.Disable))
+            | GetNamedArgument<DefaultOverloads>(attr, nameof(OverloadTemplateAttribute.Disable));
+        var enable = GetNamedArgument<OptionalOverloads>(attr, nameof(OverloadTemplateAttribute.Enable));
+        var properties = GetNamedArgument<SortProperties>(sortAttr, nameof(SortAttribute.Properties));
+
+        if (sortAttr is not null && properties.HasFlag(SortProperties.NonComparison))
+            return new TemplateMethod<BasicOptions>(decl, [.. usings], relative, ns, parent, symbol.Name, symbol.DeclaredAccessibility, behavior,
+                new(itemType!, itemIds, isSpan, disable));
+        else if(string.IsNullOrEmpty(comparer) && itemIds.Length == 0)
+            return new TemplateMethod<object>(decl, [.. usings], relative, ns, parent, symbol.Name, symbol.DeclaredAccessibility, behavior, null);
+        else
+            return new TemplateMethod<ComparisonOptions>(decl, [.. usings], relative, ns, parent, symbol.Name, symbol.DeclaredAccessibility, behavior,
+                new(itemType!, comparer!, itemIds, isSpan, properties, disable, enable));
     }
 
     private static IDictionary<string, CallSiteBehaviors> BuildBehaviors(ImmutableArray<(string Name, CallSiteBehaviors Behavior)> pairs)
@@ -207,9 +230,11 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
         SortedDictionary<string, CallSiteBehaviors> dict = new()
         {
             ["Less"] = CallSiteBehaviors.None,
+            ["Compare"] = CallSiteBehaviors.None,
             ["CopyTo"] = CallSiteBehaviors.RepeatCall,
             ["CopyToFill"] = CallSiteBehaviors.RepeatCall,
             ["Dispose"] = CallSiteBehaviors.RepeatCall,
+            ["Reverse"] = CallSiteBehaviors.RepeatCall,
         };
         string[] suffices = ["LE"];
 
@@ -231,17 +256,18 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
         return dict.ToFrozenDictionary(); // order immutability guaranteed by SortedDictionary
     }
 
-    private sealed record GeneratedMethod(
+    internal sealed record GeneratedMethod(
         MethodDeclarationSyntax Declaration,
         ImmutableArray<string> Usings,
         string FilePath,
         string Namespace,
         TypeDecl TypeName)
     {
-        public static GeneratedMethod Create(
-            TemplateMethod template,
+        internal static GeneratedMethod Create<T>(
+            TemplateMethod<T> template,
             MemberDeclarationSyntax declaration,
             TypeDecl? child = null)
+            where T : notnull
         {
             var type = child ?? template.OriginType;
             IEnumerable<string> segments = [template.OriginFolder, $"{type.HintName}.g"];
@@ -253,246 +279,26 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
                 type);
         }
 
-        public static GeneratedMethod CreateWrapper(
-            TemplateMethod template,
+        internal static GeneratedMethod CreateWrapper<T>(
+            TemplateMethod<T> template,
             MemberDeclarationSyntax declaration,
             TypeDecl type)
+            where T : notnull
         {
             return new GeneratedMethod(
                 (MethodDeclarationSyntax)trimmer.Visit(declaration),
                 template.Usings,
                 $"{type.HintName}.g",
-                template.OriginNamespace.Split('.')[0],
+                type.Namespace,
                 type);
         }
     }
 
-    private static readonly TypeDecl _idp = new("IDispatcher", ["T"], null, null, TypeKind.Interface);
-    private static readonly TypeDecl _ndp = new("NumberDispatcher", ["T"], null, _idp);
-    private static readonly TypeDecl _fdp = new("FloatingPointDispatcher", ["T"], null, _idp);
-    private static readonly TypeDecl _csp = new("ComparableDispatcher", ["T"], null, _idp);
-    private static readonly TypeDecl _dsp = new("DefaultDispatcher", ["T"], null, _idp);
-
-    private static MethodDeclarationSyntax ToContract(MethodDeclarationSyntax method)
-        => method.WithModifiers([F.Token(SyntaxKind.AbstractKeyword)])
-            .WithAttributeLists([])
-            .WithConstraintClauses([])
-            .WithBody(null)
-            .WithSemicolonToken(F.Token(SyntaxKind.SemicolonToken));
-
-    private static MethodDeclarationSyntax ToWrapper(
-        MethodDeclarationSyntax method,
-        TypeDeclCore targetType,
-        string targetMethod,
-        bool moveNans)
-    {
-        method = method.WithModifiers([F.Token(SyntaxKind.PublicKeyword)])
-            .WithAttributeLists([])
-            .WithConstraintClauses([]);
-        var expr = F.InvocationExpression(
-            F.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, targetType.Syntax, F.IdentifierName(targetMethod)),
-            F.ArgumentList([.. method.ParameterList.Parameters.Select(p => F.Argument(F.IdentifierName(p.Identifier)))]));
-        if (moveNans)
-        {
-            method = method.WithBody(F.Block(F.List<StatementSyntax>([
-                F.LocalDeclarationStatement(
-                    [],
-                    F.VariableDeclaration(F.PredefinedType(F.Token(SyntaxKind.IntKeyword)), [
-                        F.VariableDeclarator(F.Identifier("start"))
-                            .WithInitializer(F.EqualsValueClause(F.InvocationExpression(
-                                F.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, F.IdentifierName("SortBase"), F.IdentifierName("MoveNansToFront")),
-                                F.ArgumentList([.. method.ParameterList.Parameters
-                                    .TakeWhile(p => p.Type is GenericNameSyntax { Identifier.Text: nameof(Span<>) })
-                                    .Select(p => F.Argument(F.IdentifierName(p.Identifier)))]))))
-                    ])
-                ),
-                .. method.ParameterList.Parameters.TakeWhile(p => p.Type is GenericNameSyntax { Identifier.Text: nameof(Span<>) })
-                    .Select(p => F.ExpressionStatement(F.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
-                        F.IdentifierName(p.Identifier),
-                        F.InvocationExpression(
-                            F.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
-                                F.IdentifierName(p.Identifier),
-                                F.IdentifierName("Sub")),
-                            F.ArgumentList([
-                                F.Argument(F.IdentifierName("start")),
-                                F.Argument(F.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
-                                    F.IdentifierName(p.Identifier),
-                                    F.IdentifierName(nameof(Span<>.Length))))
-                            ])
-                        )))),
-                F.ExpressionStatement(expr),
-            ])));
-        }
-        else
-        {
-            method = method.WithBody(null).WithExpressionBody(F.ArrowExpressionClause(expr)).WithSemicolonToken(F.Token(SyntaxKind.SemicolonToken));
-        }
-        return method;
-    }
-
-    private static IEnumerable<GeneratedMethod> GenerateMethods(
-        TemplateMethod template,
-        Capabilities capabilities,
-        IDictionary<string, CallSiteBehaviors> behaviors,
-        CancellationToken ct)
-    {
-        ct.ThrowIfCancellationRequested();
-
-        var decl = template.Declaration;
-        var options = template.Options;
-
-        if (options!.Switch.HasFlag(TemplateVariants.LessThanOrEqual))
-        {
-            CSharpSyntaxRewriter LEW = LessEqualRewriter.Instance; // Less(a, b) => !Less(b, a)
-            var le = (MethodDeclarationSyntax)LEW.Visit(decl);
-            yield return GeneratedMethod.Create(template, le);
-            var tmpl = template with { Declaration = le, Options = options with { Switch = options.Switch & ~TemplateVariants.LessThanOrEqual } };
-            foreach (var m in GenerateMethods(tmpl, capabilities, behaviors, ct))
-                yield return m;
-        }
-
-        MethodDeclarationSyntax? iw = null;
-        if (options.ItemNames.Any() && !options.Switch.HasFlag(TemplateVariants.KeyValue))
-        {
-            ItemsRewriter IW = options!.IsItemsSpan // <?> => <T, V>
-                ? ItemsRewriter.CreateForSpans(behaviors, options.GenericName, options.ItemNames)
-                : ItemsRewriter.CreateForItems(behaviors, options.GenericName, options.ItemNames);
-            iw = (MethodDeclarationSyntax)IW.Visit(decl);
-            if (template.OriginType.Name is "Cmp" or "Op" && template.OriginType.TypeParameters.Length == 1)
-            {
-                // T, V => <T>.<V> for Cmp<T>
-                iw = iw.WithTypeParameterList(F.TypeParameterList([F.TypeParameter("V")]));
-            }
-            yield return GeneratedMethod.Create(template, iw);
-        }
-
-        if (options.CompareName is not null)
-        {
-            //if (!options.Skip.HasFlag(TemplateVariant.IComparer))
-            //{
-            //    var cw = ComparerRewriter.Instance; // Comparison<T> => IComparer<T>
-            //    yield return GeneratedMethod.Create(template, (MethodDeclarationSyntax)cw.Visit(decl));
-            //    if (I is not null)
-            //        yield return GeneratedMethod.Create(template, (MethodDeclarationSyntax)cw.Visit(I));
-            //}
-
-            MethodDeclarationSyntax? cb = null, ci = null, lt = null, li = null;
-            
-            static TypeDecl derive(TypeDecl origin, string name, ImmutableArray<string> typeParameters)
-            {
-                var bs = origin.Base is { Name: "Fn" or "Cmp" or "Op" }
-                    ? origin.Base with { Name = name, TypeParameters = typeParameters }
-                    : origin.Base;
-                return origin.Name is "Fn" or "Cmp" or "Op"
-                    ? origin with { Name = name, TypeParameters = typeParameters, Base = bs }
-                    : new(name, typeParameters, origin, null, origin.Kind, SyntaxKind.StaticKeyword);
-            }
-            var cmp1 = derive(template.OriginType, "Cmp", [options.GenericName]);
-            var cmp2 = derive(template.OriginType, "Cmp", [options.GenericName, "C"]);
-            var op1 = derive(template.OriginType, "Op", [options.GenericName]);
-
-            if (!options.Switch.HasFlag(TemplateVariants.IComparable))
-            {
-                var CBW = new ComparableRewriter(options.CompareName); // IComparer<T> => IComparable<T>
-
-                cb = (MethodDeclarationSyntax)CBW.Visit(decl);
-                yield return GeneratedMethod.Create(template, cb, cmp1);
-                if (iw is not null)
-                {
-                    ci = (MethodDeclarationSyntax)CBW.Visit(iw);
-                    yield return GeneratedMethod.Create(template, ci, cmp1);
-                }
-            }
-
-            if (!options.Switch.HasFlag(TemplateVariants.TComparer))
-            {
-                var CGW = ComparerGenericRewriter.Instance; // Comparison<T> => TComparer
-
-                yield return GeneratedMethod.Create(template, (MethodDeclarationSyntax)CGW.Visit(decl), cmp2);
-                if (iw is not null)
-                    yield return GeneratedMethod.Create(template, (MethodDeclarationSyntax)CGW.Visit(iw), cmp2);
-            }
-
-            if (!options.Switch.HasFlag(TemplateVariants.IComparisonOperators))
-            {
-                CSharpSyntaxRewriter LTW = capabilities.UsesLessThan
-                    ? new LessThanRewriter(options.CompareName) // compare => operator <
-                    : new ComparableRewriter(options.CompareName); // fallback: IComparer<T> => IComparable<T> with specialized Less()
-
-                lt = (MethodDeclarationSyntax)LTW.Visit(decl);
-                yield return GeneratedMethod.Create(template, lt, op1) with { Usings = [.. template.Usings, "using System.Numerics;"] };
-                if (iw is not null)
-                {
-                    li = (MethodDeclarationSyntax)LTW.Visit(iw);
-                    yield return GeneratedMethod.Create(template, li, op1);
-                }
-            }
-
-            if (!options.IsPublic)
-                yield break;
-
-            var wrapper = template.Name.StartsWith("Sort")
-                ? $"{template.OriginType.Containing?.Name ?? template.OriginType.Name}{template.Name}"
-                : template.Name;
-
-            if (cb is not null)
-            {
-                foreach (var target in Enumerable.Where([cb, ci], d => d is not null))
-                {
-                    var method = target!.WithIdentifier(F.Identifier(wrapper));
-                    yield return GeneratedMethod.CreateWrapper(template, ToContract(method), _idp);
-                    yield return GeneratedMethod.CreateWrapper(
-                        template,
-                        ToWrapper(method, cmp1, template.Name, false),
-                        _csp);
-
-                    if (lt is null)
-                        yield return GeneratedMethod.CreateWrapper(template,
-                            ToWrapper(method, cmp1, template.Name, false),
-                            _ndp);
-                    if (!options.IsUnstable)
-                        yield return GeneratedMethod.CreateWrapper(
-                            template,
-                            ToWrapper(method, cmp1, template.Name, false),
-                            _fdp);
-                }
-            }
-
-            if (lt is not null)
-            {
-                foreach (var target in Enumerable.Where([lt, li], d => d is not null))
-                {
-                    var method = target!.WithIdentifier(F.Identifier(wrapper));
-                    yield return GeneratedMethod.CreateWrapper(template,
-                        ToWrapper(method, op1, template.Name, false),
-                        _ndp);
-
-                    if (options.IsUnstable)
-                        yield return GeneratedMethod.CreateWrapper(template,
-                            ToWrapper(method, op1, template.Name, template.Name.StartsWith("Sort")),
-                            _fdp);
-                }
-            }
-
-            if (!options.Switch.HasFlag(TemplateVariants.TComparer))
-            {
-                var CWW = new ComparerWrapperRewriter(options.CompareName); // strip Comparer for wrappers
-                foreach (var target in Enumerable.Where([decl, iw], d => d is not null))
-                {
-                    var method = target!.WithIdentifier(F.Identifier(wrapper));
-                    yield return GeneratedMethod.CreateWrapper(template,
-                        (MethodDeclarationSyntax)CWW.Visit(ToWrapper(method, cmp2, template.Name, false)),
-                        _dsp);
-                }
-            }
-        }
-    }
-
-    private sealed record GeneratedFile(
+    internal sealed record GeneratedFile(
         string FilePath,
         SourceText Source);
 
-    private static IEnumerable<GeneratedFile> RenderFiles(ImmutableArray<GeneratedMethod> variants, Capabilities capabilities)
+    internal static IEnumerable<GeneratedFile> RenderFiles(ImmutableArray<GeneratedMethod> variants, Func<TypeDeclarationSyntax, TypeDecl, TypeDeclarationSyntax> callback)
     {
         return variants
             .GroupBy(v => v.FilePath)
@@ -500,78 +306,50 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
             {
                 try
                 {
-                    var usings = f
-                        .SelectMany(static v => v.Usings)
-                        .Select(static s => s.Trim())
-                        .Distinct(StringComparer.Ordinal)
-                        .OrderBy(static s => s, StringComparer.Ordinal)
-                        .Select(static s => s switch
-                        {
-                            _ when s.StartsWith("using static") 
-                                => F.UsingDirective(F.ParseName(s[13..].TrimEnd(';')))
-                                    .WithStaticKeyword(F.Token(SyntaxKind.StaticKeyword)),
-                            _ when s.StartsWith("using")
-                                => F.UsingDirective(F.ParseName(s[6..].TrimEnd(';'))),
-                            _ => null!,
-                        })
-                        .Where(u => u is not null)
-                        .ToArray();
-                    usings[0] = usings[0].WithLeadingTrivia(F.Trivia(F.NullableDirectiveTrivia(F.Token(SyntaxKind.EnableKeyword), true)));
+                    var usings = string.Join(
+                        "\r\n",
+                        f.SelectMany(static v => v.Usings)
+                            .Select(static s => s.Trim())
+                            .Distinct(StringComparer.Ordinal)
+                            .OrderBy(static s => s, StringComparer.Ordinal));
+                    var root = F.ParseCompilationUnit($"""
+                        /// <auto-generated/>
+                        #nullable enable
+                        {usings}
+                        """);
 
                     var ns = f.Select(static v => v.Namespace).Distinct().Single();
-                    var name = f.First().TypeName;
+                    var meta = f.First().TypeName;
 
-                    TypeDeclarationSyntax decl = name.Kind switch
+                    TypeDeclarationSyntax decl = meta.Kind switch
                     {
-                        TypeKind.Interface => F.InterfaceDeclaration(name.Name),
-                        _ => F.ClassDeclaration(name.Name),
+                        TypeKind.Interface => F.InterfaceDeclaration(meta.Name),
+                        TypeKind.Struct => F.StructDeclaration(meta.Name),
+                        _ => F.ClassDeclaration(meta.Name),
                     };
                     decl = decl.WithModifiers([F.Token(SyntaxKind.PartialKeyword)])
                         .WithMembers([.. f.Select(static v => v.Declaration)]);
-                    if (name.TypeParameters.Any())
+                    if (meta.TypeParameters.Any())
                     {
                         decl = decl
-                            .WithTypeParameterList(F.TypeParameterList([.. name.TypeParameters.Select(F.TypeParameter)]))
+                            .WithTypeParameterList(F.TypeParameterList([.. meta.TypeParameters.Select(F.TypeParameter)]))
                             .WithMembers([.. decl.Members]);
-                        decl = name switch
-                        {
-                            { Name: "Cmp", TypeParameters: [var T, var C] } => decl.AddConstraintClauses([
-                                F.TypeParameterConstraintClause(
-                                    F.IdentifierName(C),
-                                    [ F.TypeConstraint(F.ParseTypeName($"global::System.Collections.Generic.IComparer<{T}>")) ])
-                            ]),
-                            { Name: "Cmp", TypeParameters: [var T] } => decl.AddConstraintClauses([
-                                F.TypeParameterConstraintClause(
-                                    F.IdentifierName(T),
-                                    [ F.TypeConstraint(F.ParseTypeName($"global::System.IComparable<{T}>")) ])
-                            ]),
-                            { Name: "Op", TypeParameters: [var T] } => decl.AddConstraintClauses([
-                                F.TypeParameterConstraintClause(
-                                    F.IdentifierName(T),
-                                    [
-                                        F.TypeConstraint(F.IdentifierName("unmanaged")),
-                                        capabilities.UsesLessThan
-                                            ? F.TypeConstraint(F.ParseTypeName($"global::System.Numerics.IComparisonOperators<{T}, {T}, bool>"))
-                                            : F.TypeConstraint(F.ParseTypeName($"global::System.IComparable<{T}>"))
-                                    ])
-                            ]),
-                            _ => decl
-                        };
+                        decl = callback(decl, meta);
                     }
-                    if (name.Base is TypeDeclCore b)
+                    if (meta.Base is TypeDeclCore b)
                     {
                         decl = decl.WithBaseList(F.BaseList([F.SimpleBaseType(b.Syntax)]));
                     }
                     // add modifiers for inner-most nested classes
-                    if (name.Containing is not null)
+                    if (meta.Containing is not null)
                     {
                         var modifier = f.Select(n => n.TypeName.Modifier).FirstOrDefault(m => m != default);
-                        decl = name.Modifier != default
+                        decl = meta.Modifier != default
                             ? decl.WithModifiers([F.Token(SyntaxKind.InternalKeyword), F.Token(modifier), F.Token(SyntaxKind.PartialKeyword)])
                             : decl.WithModifiers([F.Token(SyntaxKind.InternalKeyword), F.Token(SyntaxKind.PartialKeyword)]);
                     }
 
-                    TypeDeclCore? c = name.Containing;
+                    TypeDeclCore? c = meta.Containing;
                     while (c is not null)
                     {
                         decl = F.ClassDeclaration(c.Name)
@@ -580,10 +358,8 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
                         c = c.Containing;
                     }
 
-                    var root = F.CompilationUnit()
-                        .WithUsings([.. usings])
-                        .WithMembers([F.FileScopedNamespaceDeclaration(F.ParseName(ns))
-                            .WithMembers([decl])]);
+                    root = root.WithMembers([F.FileScopedNamespaceDeclaration(F.ParseName(ns))
+                        .WithMembers([decl])]);
 
                     return new GeneratedFile(
                         f.Key,
@@ -593,7 +369,7 @@ internal sealed class TemplateMethodGenerator : IIncrementalGenerator
                 {
                     // TODO: provide a diagnostic for this error
                     return null!;
-                }                
+                }
             })
             .Where(f => f is not null);
     }

@@ -93,8 +93,11 @@ internal abstract class FilterBase<T> : IFilter
             .Single(p => p.Name == "Pattern")
             .Value;
         object variant = benchmarkCase.Parameters.Items
-            .FirstOrDefault(p => p.Name == "Variant")
+            .FirstOrDefault(p => p.Name == "Profile")
             ?.Value;
+
+        if (name.StartsWith(nameof(Radix)) && size < 256)
+            return false;
 
         if (size < GetMinimumSize(pattern))
             return false;
@@ -102,15 +105,17 @@ internal abstract class FilterBase<T> : IFilter
         // filter policies
         if (variant is MemoryProfile profile)
         {
-            return profile switch
+            if (profile switch
             {
-                MemoryProfile.Maximum when name.StartsWith(nameof(Wiki)) => (size + 1) / 2 > 512,
-                MemoryProfile.Maximum => false,
-                MemoryProfile.High when name.StartsWith(nameof(Wiki)) => (int)Math.Sqrt((size + 1) / 2) + 1 > 512,
-                MemoryProfile.High when name.StartsWith(nameof(Grail)) => size > 512 * 512,
-                MemoryProfile.High => false,
-                _ => true,
-            };
+                MemoryProfile.High when name.StartsWith(nameof(Radix)) => false, // stable
+                MemoryProfile.High when name.StartsWith(nameof(Wiki)) => (size + 1) / 2 <= 512,
+                MemoryProfile.High => true,
+                MemoryProfile.Medium when name.StartsWith(nameof(Wiki)) => (int)Math.Sqrt((size + 1) / 2) + 1 <= 512,
+                MemoryProfile.Medium when name.StartsWith(nameof(Grail)) => size <= 512 * 512,
+                MemoryProfile.Medium => true,
+                _ => false,
+            })
+                return false;
         }
 
         return PredicateOverride(benchmarkCase, size, pattern, variant);
@@ -124,7 +129,7 @@ internal abstract class FilterBase<T> : IFilter
         => true;
 }
 
-public enum BranchlessVariant
+public enum BranchlessProfile
 {
     Branchy,
     Branchless,

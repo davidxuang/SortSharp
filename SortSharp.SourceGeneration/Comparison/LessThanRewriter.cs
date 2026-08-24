@@ -2,7 +2,7 @@
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace SortSharp.SourceGeneration.Templates;
+namespace SortSharp.SourceGeneration.Comparison;
 
 internal sealed class LessThanRewriter(string name) : CSharpSyntaxRewriter
 {

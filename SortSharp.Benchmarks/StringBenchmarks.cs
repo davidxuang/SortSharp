@@ -1,7 +1,9 @@
 using System;
 using System.IO;
+using System.Linq;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
+using BenchmarkDotNet.Running;
 
 namespace SortSharp.Benchmarks;
 
@@ -109,26 +111,35 @@ public partial class StringBenchmarks
     [Benchmark]
     [Arguments(MemoryProfile.Minimum)]
     [Arguments(MemoryProfile.Baseline)]
-    [Arguments(MemoryProfile.High)]
-    public void GrailSort(MemoryProfile Variant)
+    [Arguments(MemoryProfile.Medium)]
+    public void GrailSort(MemoryProfile Profile)
     {
         if (Order == OrderType.Ordinal)
-            buffer.GrailSort(StringComparer.Ordinal, Variant);
+            buffer.GrailSort(StringComparer.Ordinal, Profile);
         else
-            buffer.GrailSort(Variant);
+            buffer.GrailSort(Profile);
+    }
+
+    [Benchmark]
+    [Arguments(MemoryProfile.Minimum)]
+    [Arguments(MemoryProfile.Baseline)]
+    [Arguments(MemoryProfile.Medium)]
+    [Arguments(MemoryProfile.High)]
+    public void WikiSort(MemoryProfile Profile)
+    {
+        if (Order == OrderType.Ordinal)
+            buffer.WikiSort(StringComparer.Ordinal, Profile);
+        else
+            buffer.WikiSort(Profile);
     }
 
     [Benchmark]
     [Arguments(MemoryProfile.Minimum)]
     [Arguments(MemoryProfile.Baseline)]
     [Arguments(MemoryProfile.High)]
-    [Arguments(MemoryProfile.Maximum)]
-    public void WikiSort(MemoryProfile Variant)
+    public void RadixMsdSort(MemoryProfile Profile)
     {
-        if (Order == OrderType.Ordinal)
-            buffer.WikiSort(StringComparer.Ordinal, Variant);
-        else
-            buffer.WikiSort(Variant);
+        buffer.RadixMsdSort(Profile);
     }
 
     private class Config : ConfigBase
@@ -147,5 +158,17 @@ public partial class StringBenchmarks
                 StringPattern.NounZipf1 => 1000,
                 _ => 16,
             };
+
+        protected override bool PredicateOverride(BenchmarkCase benchmarkCase, int size, StringPattern pattern, object variant)
+        {
+            var order = (OrderType)benchmarkCase.Parameters.Items
+                .Single(p => p.Name == nameof(Order))
+                .Value;
+
+            if (benchmarkCase.Descriptor.WorkloadMethod.Name.StartsWith(nameof(Radix)) && order != OrderType.Ordinal)
+                return false;
+
+            return true;
+        }
     }
 }

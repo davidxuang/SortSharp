@@ -5,8 +5,9 @@ using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using SortSharp.Compat;
+using SortSharp.Foundation;
 using SortSharp.SourceGeneration;
-using static SortSharp.SpanExtensions;
+using static SortSharp.SpanOperations;
 
 namespace SortSharp;
 
@@ -19,8 +20,8 @@ public static partial class Extensions
     {
         if (span.Length <= 1)
             return;
-        else if (Router<T>.IsFloatingPointIeee)
-            Router<T>.To.IPNSort(span);
+        else if (Dispatcher<T>.IsFloatingPointIeee)
+            Dispatcher<T>.To.IPNSort(span);
         else
             IPN.Op<T>.Sort(span);
     }
@@ -49,7 +50,7 @@ public static partial class Extensions
             IPN.Cmp<T, TComparer>.Sort(span, comparer);
 #pragma warning restore CS8631
         else if (comparer is null || comparer as IComparer<T> == Comparer<T>.Default)
-            Router<T>.To.IPNSort(span);
+            Dispatcher<T>.To.IPNSort(span);
         else
             IPN.Cmp<T, IComparer<T>>.Sort(span, comparer);
     }
@@ -63,8 +64,8 @@ public static partial class Extensions
 
         if (keys.Length <= 1)
             return;
-        else if (Router<K>.IsFloatingPointIeee)
-            Router<K>.To.IPNSort(keys, items);
+        else if (Dispatcher<K>.IsFloatingPointIeee)
+            Dispatcher<K>.To.IPNSort(keys, items);
         else
             IPN.Op<K>.Sort(keys, items);
     }
@@ -96,14 +97,14 @@ public static partial class Extensions
             IPN.Cmp<K, TComparer>.Sort(keys, items, comparer);
 #pragma warning restore CS8631
         else if (comparer is null || comparer as IComparer<K> == Comparer<K>.Default)
-            Router<K>.To.IPNSort(keys, items);
+            Dispatcher<K>.To.IPNSort(keys, items);
         else
             IPN.Cmp<K, IComparer<K>>.Sort(keys, items, (IComparer<K>?)comparer ?? Comparer<K>.Default);
     }
 }
 
-/// <see href="https://github.com/Voultapher/sort-research-rs/tree/main/ipnsort/src" />
-[TemplateClass(IsUnstable = true)]
+/// <remarks><see href="https://github.com/Voultapher/sort-research-rs/tree/main/ipnsort/src" /></remarks>
+[Sort]
 internal static partial class IPN
 {
     /// Optimal number of comparisons, and good perf.
@@ -141,16 +142,16 @@ internal static partial class IPN
     ref partial struct ScratchN<T>;
 #endif
 
-    internal sealed partial class Fn<T> : SortBase.Fn<T>
+    internal sealed partial class Fn<T> : ComparisonOperations.Fn<T>
     {
-        [Template(nameof(T), "comp", Switch = TemplateVariants.IComparisonOperators)]
+        [OverloadTemplate(nameof(T), "comp", Disable = DefaultOverloads.IComparisonOperators)]
         static int SmallSortThreshold() => Unsafe.SizeOf<T>() * SmallSortGeneralScratchLen > MaxStackArraySize
             ? SmallSortFallbackThreshold
             : SmallSortGeneralThreshold;
 
-        [Template(nameof(T), nameof(comp), nameof(span), Switch = TemplateVariants.IComparisonOperators)]
+        [OverloadTemplate(nameof(T), nameof(comp), nameof(span), Disable = DefaultOverloads.IComparisonOperators)]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static void SmallSort(Span<T> span, Comparison<T> comp)
+        internal static void SmallSort(Span<T> span, Comparison<T> comp)
         {
             if (Unsafe.SizeOf<T>() * SmallSortGeneralScratchLen > MaxStackArraySize)
             {
@@ -226,7 +227,7 @@ internal static partial class IPN
         }
 
         /// Sorts range [begin, tail] assuming [begin, tail) is already sorted.
-        [Template(nameof(T), nameof(comp), nameof(head), Switch = TemplateVariants.IComparisonOperators)]
+        [OverloadTemplate(nameof(T), nameof(comp), nameof(head), Disable = DefaultOverloads.IComparisonOperators)]
         static void InsertTail(ref T head, int offset, Comparison<T> comp)
         {
             Debug.Assert(offset > 0);
@@ -255,19 +256,19 @@ internal static partial class IPN
             }
         }
 
-        [Template(nameof(T), nameof(comp), nameof(src), nameof(dst), Switch = TemplateVariants.IComparisonOperators)]
+        [OverloadTemplate(nameof(T), nameof(comp), nameof(src), nameof(dst), Disable = DefaultOverloads.IComparisonOperators)]
         static void Sort4(ref readonly T src, ref T dst, Comparison<T> comp)
         {
             // By limiting select to picking pointers, we are guaranteed good cmov code-gen
             // regardless of type T's size. Further this only does 5 instead of 6
             // comparisons compared to a stable transposition 4 element sorting-network,
             // and always copies each element exactly once.
-            bool c1 = Less(in Unsafe.RoAdd(in src, 1), in src, comp);
-            bool c2 = Less(in Unsafe.RoAdd(in src, 3), in Unsafe.RoAdd(in src, 2), comp);
-            ref readonly T a = ref Unsafe.RoAdd(in src, c1 ? 1 : 0);
-            ref readonly T b = ref Unsafe.RoAdd(in src, !c1 ? 1 : 0);
-            ref readonly T c = ref Unsafe.RoAdd(in src, 2 + (c2 ? 1 : 0));
-            ref readonly T d = ref Unsafe.RoAdd(in src, 2 + (!c2 ? 1 : 0));
+            bool c1 = Less(in Unsafe.RO.Add(in src, 1), in src, comp);
+            bool c2 = Less(in Unsafe.RO.Add(in src, 3), in Unsafe.RO.Add(in src, 2), comp);
+            ref readonly T a = ref Unsafe.RO.Add(in src, c1 ? 1 : 0);
+            ref readonly T b = ref Unsafe.RO.Add(in src, !c1 ? 1 : 0);
+            ref readonly T c = ref Unsafe.RO.Add(in src, 2 + (c2 ? 1 : 0));
+            ref readonly T d = ref Unsafe.RO.Add(in src, 2 + (!c2 ? 1 : 0));
 
             // Compare (a, c) and (b, d) to identify max/min. We're left with two
             // unknown elements, but because we are a stable sort we must know which
@@ -295,11 +296,11 @@ internal static partial class IPN
             Unsafe.Add(ref dst, 3) = max;
         }
 
-        [Template(nameof(T), nameof(comp), nameof(src), nameof(dst), nameof(scratch), Switch = TemplateVariants.IComparisonOperators)]
+        [OverloadTemplate(nameof(T), nameof(comp), nameof(src), nameof(dst), nameof(scratch), Disable = DefaultOverloads.IComparisonOperators)]
         static void Sort8(ref readonly T src, ref T dst, ref T scratch, Comparison<T> comp)
         {
             Sort4(in src, ref scratch, comp);
-            Sort4(in Unsafe.RoAdd(in src, 4), ref Unsafe.Add(ref scratch, 4), comp);
+            Sort4(in Unsafe.RO.Add(in src, 4), ref Unsafe.Add(ref scratch, 4), comp);
             MergeBidirectional(in scratch, ref dst, 8, comp);
         }
 
@@ -308,7 +309,7 @@ internal static partial class IPN
         /// Original idea for bi-directional merging by Igor van den Hoven (quadsort),
         /// adapted to only use merge up and down. In contrast to the original
         /// parity_merge function, it performs 2 writes instead of 4 per iteration.
-        [Template(nameof(T), nameof(comp), nameof(src), nameof(dst))]
+        [OverloadTemplate(nameof(T), nameof(comp), nameof(src), nameof(dst))]
         internal static void MergeBidirectional(ref readonly T src, ref T dst/*, int split*/, int length, Comparison<T> comp)
         {
             // It helps to visualize the merge:
@@ -343,10 +344,10 @@ internal static partial class IPN
             int len2 = Math.DivRem(length, 2, out int rem2);
             //Debug.Assert(split == len2 || split + len2 == length);
             ref readonly T left = ref src;
-            ref readonly T right = ref Unsafe.RoAdd(in src, len2); //split
+            ref readonly T right = ref Unsafe.RO.Add(in src, len2); //split
 
-            ref readonly T leftZ = ref Unsafe.RoDec(in right);
-            ref readonly T rightZ = ref Unsafe.RoAdd(in src, length - 1);
+            ref readonly T leftZ = ref Unsafe.RO.Dec(in right);
+            ref readonly T rightZ = ref Unsafe.RO.Add(in src, length - 1);
             ref T dstZ = ref Unsafe.Add(ref dst, length - 1);
 
             for (int i = 0; i < len2; i++)
@@ -354,27 +355,27 @@ internal static partial class IPN
                 // merge_up
                 bool l = !Less(in right, in left, comp);
                 dst = l ? left : right;
-                left = ref Unsafe.RoAdd(in left, l ? 1 : 0);
-                right = ref Unsafe.RoAdd(in right, l ? 0 : 1);
+                left = ref Unsafe.RO.Add(in left, l ? 1 : 0);
+                right = ref Unsafe.RO.Add(in right, l ? 0 : 1);
                 dst = ref Unsafe.Add(ref dst, 1);
                 // merge_down
                 l = !Less(in rightZ, in leftZ, comp);
                 dstZ = l ? rightZ : leftZ;
-                leftZ = ref Unsafe.RoAdd(in leftZ, l ? 0 : -1);
-                rightZ = ref Unsafe.RoAdd(in rightZ, l ? -1 : 0);
+                leftZ = ref Unsafe.RO.Add(in leftZ, l ? 0 : -1);
+                rightZ = ref Unsafe.RO.Add(in rightZ, l ? -1 : 0);
                 dstZ = ref Unsafe.Add(ref dstZ, -1);
             }
 
-            leftZ = ref Unsafe.RoInc(in leftZ);
-            rightZ = ref Unsafe.RoInc(in rightZ);
+            leftZ = ref Unsafe.RO.Inc(in leftZ);
+            rightZ = ref Unsafe.RO.Inc(in rightZ);
 
             // Odd length, so one element is left unconsumed in the input.
             if (rem2 != 0)
             {
                 bool l = Unsafe.IsAddressLessThan(in left, in leftZ);
                 dst = l ? left : right;
-                left = ref Unsafe.RoAdd(in left, l ? 1 : 0);
-                right = ref Unsafe.RoAdd(in right, l ? 0 : 1);
+                left = ref Unsafe.RO.Add(in left, l ? 1 : 0);
+                right = ref Unsafe.RO.Add(in right, l ? 0 : 1);
             }
 
             // We now should have consumed the full input exactly once. This can
@@ -384,7 +385,7 @@ internal static partial class IPN
         }
     }
 
-    partial class Op<T> : SortBase.Op<T>
+    partial class Op<T> : ComparisonOperations.Op<T>
         where T : unmanaged,
 #if NET7_0_OR_GREATER
         IComparisonOperators<T, T, bool>
@@ -394,7 +395,7 @@ internal static partial class IPN
     {
         static int SmallSortThreshold() => SmallSortNetworkThreshold;
 
-        [Template(nameof(T), null, nameof(span))]
+        [OverloadTemplate(nameof(T), null, nameof(span))]
         static void SmallSort(Span<T> span)
         {
             // This implementation is tuned to be efficient for integer types.
@@ -454,7 +455,7 @@ internal static partial class IPN
 
         // Never inline this function to avoid code bloat. It still optimizes nicely and has practically no
         // performance impact.
-        [Template(nameof(T), null, nameof(span))]
+        [OverloadTemplate(nameof(T), null, nameof(span))]
         static void Sort9U(Span<T> span)
         {
             Debug.Assert(span.Length >= 9);
@@ -489,7 +490,7 @@ internal static partial class IPN
 
         // Never inline this function to avoid code bloat. It still optimizes nicely and has practically no
         // performance impact.
-        [Template(nameof(T), null, nameof(span))]
+        [OverloadTemplate(nameof(T), null, nameof(span))]
         static void Sort13U(Span<T> span)
         {
             Debug.Assert(span.Length >= 13);
@@ -552,7 +553,7 @@ internal static partial class IPN
         ///
         /// This chooses a pivot by sampling an adaptive amount of points, approximating
         /// the quality of a median of sqrt(n) elements.
-        [Template(nameof(T), nameof(comp))]
+        [OverloadTemplate(nameof(T), nameof(comp))]
         static int ChoosePivot(ReadOnlySpan<T> span, Comparison<T> comp)
         {
             int len = span.Length;
@@ -577,7 +578,7 @@ internal static partial class IPN
         ///
         /// SAFETY: a, b, c must point to the start of initialized regions of memory of
         /// at least n elements.
-        [Template(nameof(T), nameof(comp))]
+        [OverloadTemplate(nameof(T), nameof(comp))]
         static ref readonly T Median3Rec(ref readonly T a, ref readonly T b, ref readonly T c, int n, Comparison<T> comp)
         {
             // SAFETY: a, b, c still point to initialized regions of n / 8 elements,
@@ -585,9 +586,9 @@ internal static partial class IPN
             if (n * 8 >= PsuedoMedianRecThreshold)
             {
                 var n8 = n / 8;
-                a = ref Median3Rec(in a, in Unsafe.RoAdd(in a, n8 * 4), in Unsafe.RoAdd(in a, n8 * 7), n8, comp);
-                b = ref Median3Rec(in b, in Unsafe.RoAdd(in b, n8 * 4), in Unsafe.RoAdd(in b, n8 * 7), n8, comp);
-                c = ref Median3Rec(in c, in Unsafe.RoAdd(in c, n8 * 4), in Unsafe.RoAdd(in c, n8 * 7), n8, comp);
+                a = ref Median3Rec(in a, in Unsafe.RO.Add(in a, n8 * 4), in Unsafe.RO.Add(in a, n8 * 7), n8, comp);
+                b = ref Median3Rec(in b, in Unsafe.RO.Add(in b, n8 * 4), in Unsafe.RO.Add(in b, n8 * 7), n8, comp);
+                c = ref Median3Rec(in c, in Unsafe.RO.Add(in c, n8 * 4), in Unsafe.RO.Add(in c, n8 * 7), n8, comp);
             }
             return ref Median3(in a, in b, in c, comp);
         }
@@ -595,7 +596,7 @@ internal static partial class IPN
         /// Calculates the median of 3 elements.
         ///
         /// SAFETY: a, b, c must be valid initialized elements.
-        [Template(nameof(T), nameof(comp))]
+        [OverloadTemplate(nameof(T), nameof(comp))]
         static ref readonly T Median3(ref readonly T a, ref readonly T b, ref readonly T c, Comparison<T> comp)
         {
             var x = Less(in a, in b, comp);
@@ -609,7 +610,7 @@ internal static partial class IPN
                 return ref a;
         }
 
-        [Template(nameof(T), nameof(comp), nameof(span))]
+        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
         static void QuickSort(Span<T> span, [AllowNull] ref readonly T pivotAncestor, int limit, Comparison<T> comp)
         {
             while (true)
@@ -687,7 +688,7 @@ internal static partial class IPN
 
     partial class Op<T>
     {
-        [Template(nameof(T), null, nameof(span), Switch = TemplateVariants.LessThanOrEqual)]
+        [OverloadTemplate(nameof(T), null, nameof(span), Enable = OptionalOverloads.LessThanOrEqual)]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static int Partition(Span<T> span, int p)
         {
@@ -701,7 +702,7 @@ internal static partial class IPN
 
     partial class Fn<T>
     {
-        [Template(nameof(T), nameof(comp), nameof(span), Switch = TemplateVariants.LessThanOrEqual | TemplateVariants.IComparisonOperators)]
+        [OverloadTemplate(nameof(T), nameof(comp), nameof(span), Disable = DefaultOverloads.IComparisonOperators, Enable = OptionalOverloads.LessThanOrEqual)]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static int Partition(Span<T> span, int p, Comparison<T> comp)
         {
@@ -714,7 +715,7 @@ internal static partial class IPN
             return numLT;
         }
 
-        [Template(nameof(T), nameof(comp), nameof(span), Switch = TemplateVariants.LessThanOrEqual | TemplateVariants.IComparisonOperators)]
+        [OverloadTemplate(nameof(T), nameof(comp), nameof(span), Disable = DefaultOverloads.IComparisonOperators, Enable = OptionalOverloads.LessThanOrEqual)]
         static int PartitionHoareBranchyCyclic(Span<T> span, ref readonly T pivot, Comparison<T> comp)
         {
             if (span.Length == 0)
@@ -773,7 +774,7 @@ internal static partial class IPN
             }
         }
 
-        [Template(nameof(T), nameof(comp), nameof(span), Switch = TemplateVariants.LessThanOrEqual)]
+        [OverloadTemplate(nameof(T), nameof(comp), nameof(span), Enable = OptionalOverloads.LessThanOrEqual)]
         static int PartitionLomutoBranchlessCyclic(Span<T> span, ref readonly T pivot, Comparison<T> comp)
         {
             // Novel partition implementation by Lukas Bergdoll and Orson Peters. Branchless Lomuto
@@ -819,7 +820,7 @@ internal static partial class IPN
             return span.Offset(in left);
         }
 
-        [Template(nameof(T), nameof(comp), nameof(span))]
+        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Sort(Span<T> span, Comparison<T> comp)
         {
@@ -847,7 +848,7 @@ internal static partial class IPN
         ///
         /// Returns the length of the run, and a bool that is false when the run
         /// is ascending, and true if the run strictly descending.
-        [Template(nameof(T), nameof(comp))]
+        [OverloadTemplate(nameof(T), nameof(comp))]
         static (int, bool) FindExisitingRun(Span<T> span, Comparison<T> comp)
         {
             int run = 2;

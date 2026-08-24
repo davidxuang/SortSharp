@@ -7,8 +7,9 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using SortSharp.Compat;
+using SortSharp.Foundation;
 using SortSharp.SourceGeneration;
-using static SortSharp.SpanExtensions;
+using static SortSharp.SpanOperations;
 
 namespace SortSharp;
 
@@ -41,7 +42,7 @@ public static partial class Extensions
             Wiki.Cmp<T, TComparer>.Sort(span, comparer, profile);
 #pragma warning restore CS8631
         else if (comparer is null || comparer as IComparer<T> == Comparer<T>.Default)
-            Router<T>.To.WikiSort(span, profile);
+            Dispatcher<T>.To.WikiSort(span, profile);
         else
             Wiki.Cmp<T, IComparer<T>>.Sort(span, (IComparer<T>?)comparer ?? Comparer<T>.Default, profile);
     }
@@ -76,18 +77,17 @@ public static partial class Extensions
             Wiki.Cmp<K, TComparer>.Sort(keys, items, comparer, profile);
 #pragma warning restore CS8631
         else if (comparer is null || comparer as IComparer<K> == Comparer<K>.Default)
-            Router<K>.To.WikiSort(keys, items, profile);
+            Dispatcher<K>.To.WikiSort(keys, items, profile);
         else
             Wiki.Cmp<K, IComparer<K>>.Sort(keys, items, (IComparer<K>?)comparer ?? Comparer<K>.Default, profile);
     }
 }
 
-/// <see cref="https://github.com/BonzaiThePenguin/WikiSort"/>
-[TemplateClass(Switch = TemplateVariants.IComparisonOperators)]
+/// <remarks><see href="https://github.com/BonzaiThePenguin/WikiSort"/></remarks>
+[Sort(Properties = SortProperties.Stable, Disable = DefaultOverloads.IComparisonOperators)]
 internal static partial class Wiki
 {
-    private const int MaxStackallocCacheSize = 512;
-    private const int MaxStackallocStructSize = 64; // restrict stack depth
+    private const int MaxStaticCacheSize = 512;
 
     internal struct Iterator : IEnumerator<Range>
     {
@@ -155,9 +155,9 @@ internal static partial class Wiki
         public int End;
     }
 
-    internal sealed partial class Fn<T> : SortBase.Fn<T>
+    internal sealed partial class Fn<T> : ComparisonOperations.Fn<T>
     {
-        [Template(nameof(T), nameof(comp))]
+        [OverloadTemplate(nameof(T), nameof(comp))]
         static int FindFirstForward(ReadOnlySpan<T> span, int start, int end, ref readonly T value, Comparison<T> comp, int unique)
         {
             int size = end - start;
@@ -175,7 +175,7 @@ internal static partial class Wiki
             return i - skip + LowerBound(span.Sub(i - skip, i), in value, comp);
         }
 
-        [Template(nameof(T), nameof(comp))]
+        [OverloadTemplate(nameof(T), nameof(comp))]
         static int FindLastForward(ReadOnlySpan<T> span, int start, int end, ref readonly T value, Comparison<T> comp, int unique)
         {
             int size = end - start;
@@ -193,7 +193,7 @@ internal static partial class Wiki
             return i - skip + UpperBound(span.Sub(i - skip, i), in value, comp);
         }
 
-        [Template(nameof(T), nameof(comp))]
+        [OverloadTemplate(nameof(T), nameof(comp))]
         static int FindFirstBackward(ReadOnlySpan<T> span, int start, int end, ref readonly T value, Comparison<T> comp, int unique)
         {
             int size = end - start;
@@ -211,7 +211,7 @@ internal static partial class Wiki
             return i + LowerBound(span.Sub(i, i + skip), in value, comp);
         }
 
-        [Template(nameof(T), nameof(comp))]
+        [OverloadTemplate(nameof(T), nameof(comp))]
         static int FindLastBackward(ReadOnlySpan<T> span, int start, int end, ref readonly T value, Comparison<T> comp, int unique)
         {
             int size = end - start;
@@ -230,7 +230,7 @@ internal static partial class Wiki
         }
 
         // merge operation using an external buffer
-        [Template(nameof(T), nameof(comp), nameof(span), nameof(cache))]
+        [OverloadTemplate(nameof(T), nameof(comp), nameof(span), nameof(cache))]
         static void MergeExternal(Span<T> span, int split, Span<T> cache, Comparison<T> comp)
         {
             // A fits into the cache, so use that instead of the internal buffer
@@ -271,7 +271,7 @@ internal static partial class Wiki
         }
 
         // merge operation using an internal buffer
-        [Template(nameof(T), nameof(comp), nameof(span), nameof(buffer))]
+        [OverloadTemplate(nameof(T), nameof(comp), nameof(span), nameof(buffer))]
         static void MergeInternal(Span<T> span, int split, Span<T> buffer, Comparison<T> comp)
         {
             // whenever we find a value to add to the final array, swap it with the value that's already in that spot
@@ -309,7 +309,7 @@ internal static partial class Wiki
         }
 
         // merge operation without a buffer
-        [Template(nameof(T), nameof(comp), nameof(span), nameof(cache))]
+        [OverloadTemplate(nameof(T), nameof(comp), nameof(span), nameof(cache))]
         static void MergeInPlace(Span<T> span, int split, Span<T> cache, Comparison<T> comp)
         {
             if (split == 0 || split == span.Length) return;
@@ -354,7 +354,7 @@ internal static partial class Wiki
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        [Template(nameof(T), nameof(comp), nameof(span))]
+        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
         static void Sort2(Span<T> span, Span<byte> order, int i, int j, Comparison<T> comp)
         {
             if (Less(in span.Ref(j), in span.Ref(i), comp) ||
@@ -365,37 +365,10 @@ internal static partial class Wiki
             }
         }
 
-        // bottom-up merge sort combined with an in-place merge algorithm for O(1) memory use
-        [Template(nameof(T), nameof(comp), nameof(span))]
-        public static unsafe void Sort(Span<T> span, Comparison<T> comp, MemoryProfile profile)
+        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [SkipLocalsInit]
+        internal static void BlockSortLoop(Span<T> span, Comparison<T> comp, ref Iterator iterator)
         {
-            int size = span.Length;
-
-            // if the array is of size 0, 1, 2, or 3, just sort them like so:
-            if (size < 4)
-            {
-                // hard-coded insertion sort
-                if (size == 3)
-                {
-                    CmpEx(ref span.Ref(0), ref span.Ref(1), comp);
-                    if (Less(in span.Ref(2), in span.Ref(1), comp))
-                    {
-                        Swap(ref span.Ref(2), ref span.Ref(1));
-                        CmpEx(ref span.Ref(0), ref span.Ref(1), comp);
-                    }
-                }
-                else if (size == 2)
-                {
-                    // swap the items if they're out of order
-                    CmpEx(ref span.Ref(0), ref span.Ref(1), comp);
-                }
-                return;
-            }
-
-            // sort groups of 4-8 items at a time using an unstable sorting network,
-            // but keep track of the original item orders to force it to be stable
-            // http://pages.ripco.net/~jgamble/nw.html
-            var iterator = new Iterator(size, 4);
             Span<byte> order = stackalloc byte[8];
             while (iterator.MoveNext())
             {
@@ -447,6 +420,41 @@ internal static partial class Wiki
                         break;
                 }
             }
+        }
+
+        // bottom-up merge sort combined with an in-place merge algorithm for O(1) memory use
+        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [SkipLocalsInit]
+        public static unsafe void Sort(Span<T> span, Comparison<T> comp, MemoryProfile profile)
+        {
+            int size = span.Length;
+
+            // if the array is of size 0, 1, 2, or 3, just sort them like so:
+            if (size < 4)
+            {
+                // hard-coded insertion sort
+                if (size == 3)
+                {
+                    CmpEx(ref span.Ref(0), ref span.Ref(1), comp);
+                    if (Less(in span.Ref(2), in span.Ref(1), comp))
+                    {
+                        Swap(ref span.Ref(2), ref span.Ref(1));
+                        CmpEx(ref span.Ref(0), ref span.Ref(1), comp);
+                    }
+                }
+                else if (size == 2)
+                {
+                    // swap the items if they're out of order
+                    CmpEx(ref span.Ref(0), ref span.Ref(1), comp);
+                }
+                return;
+            }
+
+            // sort groups of 4-8 items at a time using an unstable sorting network,
+            // but keep track of the original item orders to force it to be stable
+            // http://pages.ripco.net/~jgamble/nw.html
+            var iterator = new Iterator(size, 4);
+            BlockSortLoop(span, comp, ref iterator);
             if (size < 8) return;
 
             if (profile < MemoryProfile.Baseline)
@@ -457,30 +465,31 @@ internal static partial class Wiki
 
             // use a small cache to speed up some of the operations
             int cacheSize = (size + 1) / 2;
-            if (profile == MemoryProfile.High) cacheSize = (int)Math.Sqrt(cacheSize) + 1;
+            if (profile == MemoryProfile.Medium) cacheSize = (int)Math.Sqrt(cacheSize) + 1;
 
-            if (profile == MemoryProfile.Baseline || cacheSize < MaxStackallocCacheSize)
+            if (profile == MemoryProfile.Baseline || cacheSize < MaxStaticCacheSize)
             {
-                using OptionalMemoryOwner<T> owner = new ();
-                Span<T> cache = RuntimeHelpers.IsReferenceOrContainsReferences<T>() || Unsafe.SizeOf<T>() > MaxStackallocStructSize
-                    ? owner.Set(MemoryPool<T>.Shared.Rent(MaxStackallocCacheSize)).Memory.Span
+                using MemoryOwner<T> owner = new ();
+                Span<T> cache = RuntimeHelpers.IsReferenceOrContainsReferences<T>() || (nint)Unsafe.SizeOf<T>() * MaxStaticCacheSize <= MaxStackAllocSize
+                    ? owner.Attach(MemoryPool<T>.Shared.Rent(MaxStaticCacheSize)).Memory.Span
                     : new Span<T>(
-                        Unsafe.AsPointer(ref MemoryMarshal.GetReference(stackalloc byte[Unsafe.SizeOf<T>() * MaxStackallocCacheSize])),
-                        MaxStackallocCacheSize);
+                        Unsafe.AsPointer(ref MemoryMarshal.GetReference(stackalloc byte[Unsafe.SizeOf<T>() * MaxStaticCacheSize])),
+                        MaxStaticCacheSize);
                 SliceToLast(ref cache);
                 SortLoop(span, cache, comp, ref iterator);
             }
             else
             {
-                using IMemoryOwner<T> owner = MemoryPool<T>.Shared.Rent(cacheSize);
+                using MemoryOwner<T> owner = new(MemoryPool<T>.Shared.Rent(cacheSize));
                 Span<T> cache = owner.Memory.Span;
                 SliceToLast(ref cache);
                 SortLoop(span, cache, comp, ref iterator);
             }
         }
 
-        [Template(nameof(T), nameof(comp), nameof(span), nameof(cache))]
-        static void SortLoop(Span<T> span, Span<T> cache, Comparison<T> comp, ref Iterator iterator)
+        [OverloadTemplate(nameof(T), nameof(comp), nameof(span), nameof(cache))]
+        [SkipLocalsInit]
+        internal static void SortLoop(Span<T> span, Span<T> cache, Comparison<T> comp, ref Iterator iterator)
         {
             int cacheSize = cache.Length;
 

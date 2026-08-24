@@ -49,15 +49,6 @@ internal static partial class BclPolyfills
         internal bool IsValueType => type.GetTypeInfo().IsValueType;
         internal bool IsAssignableFrom(Type? c) => type.GetTypeInfo().IsAssignableFrom(c?.GetTypeInfo() ?? throw new ArgumentNullException(nameof(c)));
     }
-
-    extension(Math)
-    {
-        internal static int DivRem(int a, int b, out int result)
-        {
-            result = a % b;
-            return a / b;
-        }
-    }
 #endif
 
 #if !NETSTANDARD2_1_COMPAT
@@ -99,16 +90,3 @@ internal static partial class BclPolyfills
     }
 #endif
 }
-
-#if !NETCOREAPP3_0_OR_GREATER
-internal static class BitOperations
-{
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static int Log2(uint value)
-    {
-        int log = 0;
-        while ((value >>= 1) != 0) log++;
-        return log;
-    }
-}
-#endif

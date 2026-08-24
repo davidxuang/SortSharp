@@ -7,15 +7,26 @@ namespace SortSharp.SourceGeneration;
 
 [Conditional("__NEVER__")]
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
-internal sealed class TemplateAttribute(string generic, string? compare, params string[] data) : Attribute
+internal sealed class OverloadTemplateAttribute(string type, string? comparer, params string[] identifiers) : Attribute
 {
-    public TemplateVariants Switch { get; set; }
+    public DefaultOverloads Disable { get; set; }
+    public OptionalOverloads Enable { get; set; }
 }
 
-[Conditional("__NEVER__")]
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = false, Inherited = false)]
-internal sealed class TemplateClassAttribute : Attribute
+[Flags]
+internal enum DefaultOverloads : ushort
 {
-    public bool IsUnstable { get; set; }
-    public TemplateVariants Switch { get; set; }
+    KeyValue = 1,
+    SiblingSpecializations = 2,
+
+    Comparison = 1 << 8,
+    TComparer = 1 << 9,
+    IComparable = 1 << 10,
+    IComparisonOperators = 1 << 11,
+}
+
+[Flags]
+internal enum OptionalOverloads : ushort
+{
+    LessThanOrEqual = 1,
 }

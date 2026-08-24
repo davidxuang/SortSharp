@@ -62,7 +62,7 @@
   <ItemGroup Condition="!$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'netstandard2.1'))">
     <PackageReference Include="Nullable" Version="1.3.*" />
     <PackageReference Include="System.Memory" Version="$(SystemMemoryVersion)" />
-    <!--<PackageReference Include="System.Numerics.Vectors" Version="$(SystemMemoryVersion)" />-->
+    <PackageReference Include="System.Numerics.Vectors" Version="$(SystemMemoryVersion)" />
   </ItemGroup>
 
   <ItemGroup Condition="!$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'netstandard2.0'))">

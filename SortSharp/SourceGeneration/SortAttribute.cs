@@ -1,20 +1,25 @@
-﻿using System;   
+﻿using System;
+using System.Diagnostics;
 
 namespace SortSharp.SourceGeneration;
 
-[Flags]
-internal enum TemplateVariants : uint
+#pragma warning disable CS9113
+
+[Conditional("__NEVER__")]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = false, Inherited = false)]
+internal sealed class SortAttribute : Attribute
 {
-    Comparison = 0,
-    // IComparer = 1, // redirected to (TComparer = IComparer<T>)
-    TComparer = 1,
-    IComparable = 2,
-    IComparisonOperators = 4,
+    public SortProperties Properties { get; set; }
+    public DefaultOverloads Disable { get; set; }
+}
 
-    KeyValue = 1u << 8,
+[Conditional("__NEVER__")]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = false, Inherited = false)]
+internal sealed class SortSpecializationAttribute(string? type = null) : Attribute;
 
-    /// <summary>
-    /// Excluded by default.
-    /// </summary>
-    LessThanOrEqual = 1u << 16,
+[Flags]
+internal enum SortProperties : ushort
+{
+    NonComparison = 1,
+    Stable = 1 << 1,
 }

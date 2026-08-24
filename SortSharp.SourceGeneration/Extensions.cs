@@ -1,4 +1,6 @@
-﻿using Microsoft.CodeAnalysis;
+﻿using System.Reflection.Metadata;
+using System.Xml.Linq;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using F = Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
@@ -7,6 +9,18 @@ namespace SortSharp.SourceGeneration;
 
 internal static class Extensions
 {
+    public static bool TestType(this TypeSyntax? type, string? name)
+        => (type is IdentifierNameSyntax { Identifier.Text: var i } && i == name)
+        || (type is PredefinedTypeSyntax { Keyword.Text: var p } && p == name)
+        || (type is RefTypeSyntax { Type: TypeSyntax r } && TestType(r, name))
+        || (type is GenericNameSyntax { TypeArgumentList.Arguments: [TypeSyntax g] } && TestType(g, name))
+        || (type is NullableTypeSyntax { ElementType: GenericNameSyntax { TypeArgumentList.Arguments: [TypeSyntax n] } } && TestType(n, name));
+
+    public static bool TestParamType(this TypeSyntax? type, string? name)
+        => (type is IdentifierNameSyntax { Identifier.Text: var i } && i == name)
+        || (type is PredefinedTypeSyntax { Keyword.Text: var p } && p == name)
+        || (type is GenericNameSyntax { Identifier.Text: nameof(Span<>) or nameof(ReadOnlySpan<>), TypeArgumentList.Arguments: [TypeSyntax g] } && TestParamType(g, name));
+
     public static bool HasIdentifierName(this SyntaxNode node, string? name)
     {
         return name is not null && node.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>().Any(id => id.Identifier.Text == name);

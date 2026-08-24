@@ -36,16 +36,16 @@ public partial class IntegerBenchmarks
     ])]
     public IntegerPattern Pattern;
 
-    private nint[] data = null;
-    private nint[] buffer = null;
-    private nint[] truth = null;
+    private int[] data = null;
+    private int[] buffer = null;
+    private int[] truth = null;
 
     [GlobalSetup]
     public void Setup()
     {
-        data = IntegerGenerator<nint>.GetArray(Size, Pattern);
-        buffer = new nint[Size];
-        truth = new nint[Size];
+        data = IntegerGenerator<int>.GetArray(Size, Pattern);
+        buffer = new int[Size];
+        truth = new int[Size];
         Array.Copy(data, truth, Size);
         Array.Sort(truth);
     }
@@ -70,44 +70,64 @@ public partial class IntegerBenchmarks
     }
 
     [Benchmark]
-    [Arguments(BranchlessVariant.Branchy)]
-    [Arguments(BranchlessVariant.Branchless)]
-    public void IPNSort(BranchlessVariant Variant)
+    [Arguments(BranchlessProfile.Branchy)]
+    [Arguments(BranchlessProfile.Branchless)]
+    public void IPNSort(BranchlessProfile Profile)
     {
-        if (Variant == BranchlessVariant.Branchless)
+        if (Profile == BranchlessProfile.Branchless)
             buffer.IPNSort();
         else
-            IPN.Cmp<nint>.Sort(buffer);
+            IPN.Cmp<int>.Sort(buffer);
     }
 
     [Benchmark]
-    [Arguments(BranchlessVariant.Branchy)]
-    [Arguments(BranchlessVariant.Branchless)]
-    public void PDQSort(BranchlessVariant Variant)
+    [Arguments(BranchlessProfile.Branchy)]
+    [Arguments(BranchlessProfile.Branchless)]
+    public void PDQSort(BranchlessProfile Profile)
     {
-        if (Variant == BranchlessVariant.Branchless)
+        if (Profile == BranchlessProfile.Branchless)
             buffer.PDQSort();
         else
-            PDQ.Cmp<nint>.Sort(buffer);
+            PDQ.Cmp<int>.Sort(buffer);
     }
 
     [Benchmark]
     [Arguments(MemoryProfile.Minimum)]
     [Arguments(MemoryProfile.Baseline)]
-    [Arguments(MemoryProfile.High)]
-    public void GrailSort(MemoryProfile Variant)
+    [Arguments(MemoryProfile.Medium)]
+    public void GrailSort(MemoryProfile Profile)
     {
-        buffer.GrailSort(Variant);
+        buffer.GrailSort(Profile);
     }
 
     [Benchmark]
     [Arguments(MemoryProfile.Minimum)]
     [Arguments(MemoryProfile.Baseline)]
+    [Arguments(MemoryProfile.Medium)]
     [Arguments(MemoryProfile.High)]
-    [Arguments(MemoryProfile.Maximum)]
-    public void WikiSort(MemoryProfile Variant)
+    public void WikiSort(MemoryProfile Profile)
     {
-        buffer.WikiSort(Variant);
+        buffer.WikiSort(Profile);
+    }
+
+    [Benchmark]
+    [Arguments(8)]
+    [Arguments(11)]
+    public void RadixLsdSort(int Width)
+    {
+        buffer.RadixLsdSort(Width);
+    }
+
+    [Benchmark]
+    [Arguments(MemoryProfile.Minimum, 8)]
+    [Arguments(MemoryProfile.Baseline, 8)]
+    [Arguments(MemoryProfile.High, 8)]
+    [Arguments(MemoryProfile.Minimum, 11)]
+    [Arguments(MemoryProfile.Baseline, 11)]
+    [Arguments(MemoryProfile.High, 11)]
+    public void RadixMsdSort(MemoryProfile Profile, int Width)
+    {
+        buffer.RadixMsdSort(Width, Profile);
     }
 
     private class Config : ConfigBase

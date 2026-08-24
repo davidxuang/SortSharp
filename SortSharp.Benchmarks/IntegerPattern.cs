@@ -26,7 +26,7 @@ public enum IntegerPattern
 }
 
 internal static class IntegerGenerator<T>
-    where T : unmanaged, IBinaryInteger<T>
+    where T : unmanaged, IBinaryInteger<T>, IMinMaxValue<T>
 {
     public static T[] GetArray(int length, IntegerPattern pattern)
     {
@@ -110,7 +110,7 @@ internal static class IntegerGenerator<T>
                     array[i] = T.CreateChecked(random.Next(16));
                 break;
             case IntegerPattern.Zipf1:
-                var zipf = new ZipfSampler(long.MaxValue, 1.0);
+                var zipf = new ZipfSampler(long.CreateChecked(T.MaxValue), 1.0);
                 for (int i = 0; i < length; i++)
                 {
                     long value = zipf.Next(random);

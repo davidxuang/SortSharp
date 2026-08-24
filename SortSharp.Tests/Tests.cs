@@ -1,6 +1,6 @@
 ﻿namespace SortSharp.Tests;
 
-public class Tests
+public sealed class Tests
 {
     private static void Prepare(Span<long> span)
     {
@@ -66,7 +66,7 @@ public class Tests
     [Test]
     [Arguments(10_000, MemoryProfile.Minimum)]
     [Arguments(10_000, MemoryProfile.Baseline)]
-    [Arguments(10_000, MemoryProfile.High)]
+    [Arguments(10_000, MemoryProfile.Medium)]
     public async Task GrailSort(int length, MemoryProfile profile)
     {
         var keys = new long[length];
@@ -86,8 +86,8 @@ public class Tests
     [Test]
     [Arguments(10_000, MemoryProfile.Minimum)]
     [Arguments(10_000, MemoryProfile.Baseline)]
+    [Arguments(10_000, MemoryProfile.Medium)]
     [Arguments(10_000, MemoryProfile.High)]
-    [Arguments(10_000, MemoryProfile.Maximum)]
     public async Task WikiSort(int length, MemoryProfile profile)
     {
         var keys = new long[length];
@@ -96,6 +96,44 @@ public class Tests
         keys.CopyTo(values);
 
         keys.WikiSort(values, profile);
+
+        for (int i = 0; i < keys.Length; i++)
+        {
+            await Assert.That(keys[i]).EqualTo(i / 2).Because($"index {i}");
+            await Assert.That(values[i]).EqualTo(i / 2).Because($"index {i}");
+        }
+    }
+
+    [Test]
+    [Arguments(100_000)]
+    public async Task RadixLsdSort(int length)
+    {
+        var keys = new long[length];
+        Prepare(keys);
+        var values = new long[length];
+        keys.CopyTo(values);
+
+        keys.RadixLsdSort(values, 8);
+
+        for (int i = 0; i < keys.Length; i++)
+        {
+            await Assert.That(keys[i]).EqualTo(i / 2).Because($"index {i}");
+            await Assert.That(values[i]).EqualTo(i / 2).Because($"index {i}");
+        }
+    }
+
+    [Test]
+    [Arguments(100_000, MemoryProfile.Minimum)]
+    [Arguments(100_000, MemoryProfile.Baseline)]
+    [Arguments(100_000, MemoryProfile.High)]
+    public async Task RadixMsdSort(int length, MemoryProfile profile)
+    {
+        var keys = new long[length];
+        Prepare(keys);
+        var values = new long[length];
+        keys.CopyTo(values);
+
+        keys.RadixMsdSort(values, 8, profile);
 
         for (int i = 0; i < keys.Length; i++)
         {

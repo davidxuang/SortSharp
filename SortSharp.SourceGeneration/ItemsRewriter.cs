@@ -3,16 +3,16 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using F = Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
-namespace SortSharp.SourceGeneration.Templates;
+namespace SortSharp.SourceGeneration;
 
 internal class ItemsRewriter(
     IDictionary<string, CallSiteBehaviors> behaviors,
-    string generic,
+    string typeName,
     IEnumerable<(string, string)> k,
     IEnumerable<(string, string)> v) : CSharpSyntaxRewriter
 {
-    private readonly IdentifierRewriter _K = new(generic, "T", k);
-    private readonly IdentifierRewriter _V = new("T", "V", v);
+    private readonly IdentifierRewriter _K = new(null, k);
+    private readonly IdentifierRewriter _V = new(new TypeParameterRewriter(typeName, "V"), v);
     private readonly HashSet<string> _RO = new();
 
     private static (string, string) Mangling(string name)
@@ -36,9 +36,7 @@ internal class ItemsRewriter(
         node = _K.Visit(node) as MethodDeclarationSyntax ?? throw new InvalidOperationException();
         foreach (var p in node.ParameterList.Parameters)
         {
-            if (!_V.Map.ContainsKey(p.Identifier.Text) &&
-                p.Type is IdentifierNameSyntax { Identifier.Text: "T" }
-                    or GenericNameSyntax { Identifier.Text: nameof(Span<>) or nameof (ReadOnlySpan<>), TypeArgumentList.Arguments: [IdentifierNameSyntax { Identifier.Text: "T" }] })
+            if (!_V.Map.ContainsKey(p.Identifier.Text) && p.Type.TestParamType(typeName))
                 _RO.Add(p.Identifier.Text); // record the parameter name to avoid repeating it in the body
         }
         node = base.VisitMethodDeclaration(node) as MethodDeclarationSyntax ?? throw new InvalidOperationException();
@@ -47,7 +45,7 @@ internal class ItemsRewriter(
         {
             node = node.WithTypeParameterList(node.TypeParameterList.WithParameters([
                 .. node.TypeParameterList.Parameters.SelectMany(p =>
-                    p.Identifier.Text == "T"
+                    p.Identifier.Text == typeName
                         ? [ p, _V.Visit(p) as TypeParameterSyntax ?? throw new InvalidOperationException() ]
                         : new[] { p })]));
         }
@@ -70,8 +68,8 @@ internal class ItemsRewriter(
 
     public override SyntaxNode? VisitGenericName(GenericNameSyntax node)
     {
-        return node.Identifier.Text is "Context" or "TypeTraits" && node.TypeArgumentList.Arguments is [ IdentifierNameSyntax id ] && id.Identifier.Text == generic
-            ? node.WithTypeArgumentList(F.TypeArgumentList([F.ParseTypeName(generic), F.ParseTypeName("V")]))
+        return node.Identifier.Text is "Context" or "TypeTraits" && node.TypeArgumentList.Arguments is [ IdentifierNameSyntax id ] && id.Identifier.Text == typeName
+            ? node.WithTypeArgumentList(F.TypeArgumentList([F.ParseTypeName(typeName), F.ParseTypeName("V")]))
             : base.VisitGenericName(node);
     }
 
@@ -111,11 +109,6 @@ internal class ItemsRewriter(
                 return false; // contains already-shadowed variables (?)
             else if (_V.Map.Keys.Any(ae.Left.HasIdentifierName) && _V.Map.Keys.Any(ae.Right.HasIdentifierName))
                 return true; // contains should-shadow variables on both sides
-            //else if (_V.Map.Keys.Any(ae.Right.HasIdentifierName)
-            //    && !ae.Right.HasIdentifierName(compare)
-            //    && !ae.Right.HasIdentifierName("Less")
-            //    && !ae.Right.HasComparisonOperator())
-            //    return true;
             else if (ae.Left is IdentifierNameSyntax { Identifier.Text: var left } && _V.Map.ContainsKey(left))
                 return true; // assigning to should-shadow variables
         }
@@ -154,26 +147,27 @@ internal class ItemsRewriter(
 
     public override SyntaxNode? VisitLocalDeclarationStatement(LocalDeclarationStatementSyntax node)
     {
-        return node.Parent is BlockSyntax
+        return node.Parent is BlockSyntax || !node.Declaration.Type.TestType(typeName)
             ? base.VisitLocalDeclarationStatement(node)
             : throw new InvalidOperationException();
     }
 
-    private bool TestType(TypeSyntax type) => type is IdentifierNameSyntax { Identifier.Text: "T" }
-        or RefTypeSyntax { Type: IdentifierNameSyntax { Identifier.Text: "T" } }
-        or GenericNameSyntax { TypeArgumentList.Arguments: [IdentifierNameSyntax { Identifier.Text: "T" }] }
-        or NullableTypeSyntax { ElementType: GenericNameSyntax { TypeArgumentList.Arguments: [IdentifierNameSyntax { Identifier.Text: "T" }] } };
-
     private IEnumerable<StatementSyntax> TransformLocalDeclarationStatement(LocalDeclarationStatementSyntax node)
     {
         node = base.VisitLocalDeclarationStatement(node) as LocalDeclarationStatementSyntax ?? throw new InvalidOperationException();
-        if (TestType(node.Declaration.Type))
+        if (node.Declaration.Type.TestType(typeName))
         {
             var name = node.Declaration.Variables.Single().Identifier.Text;
             var name_v = name.Length == 1 ? $"{name}v" : $"{name}_v";
             _V.Map[name] = name_v;
             yield return node.WithTrailingTrivia(F.ElasticCarriageReturnLineFeed);
-            yield return _V.Visit(node.WithoutLeadingTrivia()) as LocalDeclarationStatementSyntax ?? throw new InvalidOperationException();
+            if (node.Declaration.Variables.Count == 1 && node.Declaration.Variables.Single().Initializer is { Value: StackAllocArrayCreationExpressionSyntax { Type: ArrayTypeSyntax { RankSpecifiers: [{ Sizes: [var size] }] } } })
+            {
+                yield return F.ParseStatement($"using var owner_v = global::System.Buffers.MemoryPool<V>.Shared.Rent({size.ToFullString()});");
+                yield return F.ParseStatement($"Span<V> {name_v} = owner_v.Memory.Span.Sub(0, {size.ToFullString()});");
+            }
+            else
+                yield return _V.Visit(node.WithoutLeadingTrivia()) as LocalDeclarationStatementSyntax ?? throw new InvalidOperationException();
         }
         else
             yield return node;
@@ -182,12 +176,9 @@ internal class ItemsRewriter(
     private IEnumerable<UsingStatementSyntax> TransformUsingStatementStatement(UsingStatementSyntax node)
     {
         node = base.VisitUsingStatement(node) as UsingStatementSyntax ?? throw new InvalidOperationException();
-        if (node.Declaration?.Type is IdentifierNameSyntax { Identifier.Text: "T" }
-            or RefTypeSyntax { Type: IdentifierNameSyntax { Identifier.Text: "T" } }
-            or GenericNameSyntax { TypeArgumentList.Arguments: [IdentifierNameSyntax { Identifier.Text: "T" }] }
-            or NullableTypeSyntax { ElementType: GenericNameSyntax { TypeArgumentList.Arguments: [IdentifierNameSyntax { Identifier.Text: "T" }] } })
+        if (node.Declaration?.Type?.TestType(typeName) == true)
         {
-            var name = node.Declaration.Variables.Single().Identifier.Text;
+            var name = node.Declaration!.Variables.Single().Identifier.Text;
             var name_v = name.Length == 1 ? $"{name}v" : $"{name}_v";
             _V.Map[name] = name_v;
             yield return node.WithTrailingTrivia(F.ElasticCarriageReturnLineFeed);
@@ -210,7 +201,7 @@ internal class ItemsRewriter(
                         {
                             if (b.HasFlag((CallSiteBehaviors)((uint)CallSiteBehaviors.RepeatArgument0 << a)))
                             {
-                                if (arg.Expression is DeclarationExpressionSyntax de && TestType(de.Type)
+                                if (arg.Expression is DeclarationExpressionSyntax de && de.Type.TestType(typeName)
                                     && de.Designation is SingleVariableDesignationSyntax svd)
                                 {
                                     var name = svd.Identifier.Text;
@@ -249,14 +240,32 @@ internal class ItemsRewriter(
     }
 }
 
-internal sealed class IdentifierRewriter(
-    string oldTP,
-    string newTP,
-    params IEnumerable<(string, string)> map) : CSharpSyntaxRewriter
+internal sealed class TypeParameterRewriter(string old, string name) : CSharpSyntaxRewriter
 {
-    private readonly SyntaxToken _tp = F.Identifier(newTP);
+    public override SyntaxNode? VisitPredefinedType(PredefinedTypeSyntax node)
+        => node.Keyword.Text == old
+            ? F.IdentifierName(F.Identifier(name)).WithTriviaFrom(node)
+            : base.VisitPredefinedType(node);
 
+    public override SyntaxNode? VisitTypeParameter(TypeParameterSyntax node)
+        => base.VisitTypeParameter(node.Identifier.Text == old
+            ? node.WithIdentifier(F.Identifier(name)).WithTriviaFrom(node)
+            : node);
+
+    public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
+        => base.VisitIdentifierName(node.Identifier.Text == old
+            ? node.WithIdentifier(F.Identifier(name)).WithTriviaFrom(node)
+            : node);
+}
+
+internal sealed class IdentifierRewriter(CSharpSyntaxRewriter? pre, params IEnumerable<(string, string)> map) : CSharpSyntaxRewriter
+{
     internal readonly Dictionary<string, string> Map = map.ToDictionary(t => t.Item1, t => t.Item2);
+
+    public override SyntaxNode? Visit(SyntaxNode? node)
+    {
+        return base.Visit(pre is not null ? pre.Visit(node) : node);
+    }
 
     public override SyntaxNode? VisitParameter(ParameterSyntax node)
     {
@@ -279,20 +288,10 @@ internal sealed class IdentifierRewriter(
             : node);
     }
 
-    public override SyntaxNode? VisitTypeParameter(TypeParameterSyntax node)
-    {
-        return base.VisitTypeParameter(node.Identifier.Text == oldTP
-            ? node.WithIdentifier(_tp).WithTriviaFrom(node)
-            : node);
-    }
-
     public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
     {
-        return base.VisitIdentifierName(node.Identifier.Text switch
-        {
-            var s when Map.TryGetValue(s, out var n) => node.WithIdentifier(F.Identifier(n)).WithTriviaFrom(node),
-            var s when s == oldTP => node.WithIdentifier(_tp).WithTriviaFrom(node),
-            _ => node
-        });
+        return base.VisitIdentifierName(Map.TryGetValue(node.Identifier.Text, out var n)
+            ? node.WithIdentifier(F.Identifier(n)).WithTriviaFrom(node)
+            : node);
     }
 }
