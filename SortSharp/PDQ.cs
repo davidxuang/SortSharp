@@ -148,39 +148,39 @@ internal static partial class PDQ
 
     internal sealed partial class Fn<T> : ComparisonOperations.Fn<T>
     {
-        // Sorts [start, end) using insertion sort with the given comparison function. Assumes
-        // *(start - 1) is an element smaller than or equal to any element in [start, end).
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(first))]
-        static void UnguardedInsertionSort(ref T first, int length, Comparison<T> comp)
-        {
-            if (length <= 1) return;
+//        // Sorts [start, end) using insertion sort with the given comparison function. Assumes
+//        // *(start - 1) is an element smaller than or equal to any element in [start, end).
+//        [OverloadTemplate(nameof(T), nameof(comp), nameof(first))]
+//        static void UnguardedInsertionSort(ref T first, int length, Comparison<T> comp)
+//        {
+//            if (length <= 1) return;
 
-            ref T curr = ref first;
-            while (--length != 0)
-            {
-                curr = ref Unsafe.Inc(ref curr);
-                ref T sift = ref curr;
-                ref T sift1 = ref Unsafe.Dec(ref curr);
+//            ref T curr = ref first;
+//            while (--length != 0)
+//            {
+//                curr = ref Unsafe.Inc(ref curr);
+//                ref T sift = ref curr;
+//                ref T sift1 = ref Unsafe.Dec(ref curr);
 
-                // Compare first so we can avoid 2 moves for an element already positioned correctly.
-                if (Less(in sift, in sift1, comp))
-                {
-                    T tmp = sift;
-                    do
-                    {
-#if DEBUG
-                        Ensure(!Unsafe.IsAddressGreaterThan(ref first, ref sift1));
-#endif
-                        sift = sift1;
-                        sift = ref Unsafe.Dec(ref sift);
-                        sift1 = ref Unsafe.Dec(ref sift1);
-                    }
-                    while (Less(in tmp, in sift1, comp));
+//                // Compare first so we can avoid 2 moves for an element already positioned correctly.
+//                if (Less(in sift, in sift1, comp))
+//                {
+//                    T tmp = sift;
+//                    do
+//                    {
+//#if DEBUG
+//                        Ensure(!Unsafe.IsAddressGreaterThan(ref first, ref sift1));
+//#endif
+//                        sift = sift1;
+//                        sift = ref Unsafe.Dec(ref sift);
+//                        sift1 = ref Unsafe.Dec(ref sift1);
+//                    }
+//                    while (Less(in tmp, in sift1, comp));
 
-                    sift = tmp;
-                }
-            }
-        }
+//                    sift = tmp;
+//                }
+//            }
+//        }
 
         // Attempts to use insertion sort on [start, end). Will return false if more than
         // partial_insertion_sort_limit elements were moved, and abort sorting. Otherwise it will
@@ -542,8 +542,9 @@ internal static partial class PDQ
                 // Insertion sort is faster for small arrays.
                 if (size < InsertionSortThreshold)
                 {
-                    if (leftmost) InsertionSort(ref span.Ref(0), size, comp);
-                    else UnguardedInsertionSort(ref span.Ref(0), size, comp);
+                    InsertionSort(ref span.Ref(0), size, comp);
+                    //if (leftmost) InsertionSort(ref span.Ref(0), size, comp);
+                    //else UnguardedInsertionSort(ref span.Ref(0), size, comp);
                     return;
                 }
 
