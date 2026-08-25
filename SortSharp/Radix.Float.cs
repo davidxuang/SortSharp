@@ -11,6 +11,42 @@ namespace SortSharp;
 
 public static partial class Extensions
 {
+    /// <remarks>IEEE 754 total order is implied, as if <see cref="TotalOrderIeee754Comparer{T}"/> is used.</remarks>
+    /// <inheritdoc cref="RadixLsdSort(Span{ulong}, int)" />
+    [SpecializationTemplate("double")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void RadixLsdSort(this Span<double> span)
+    {
+        Radix.Float<double>.LsdSort(span);
+    }
+
+    /// <remarks>IEEE 754 total order is implied, as if <see cref="TotalOrderIeee754Comparer{T}"/> is used.</remarks>
+    /// <inheritdoc cref="RadixMsdSort(Span{ulong}, int, MemoryProfile)" />
+    [SpecializationTemplate("double")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void RadixMsdSort(this Span<double> span, MemoryProfile profile = MemoryProfile.Baseline)
+    {
+        Radix.Float<double>.MsdSort(span, profile);
+    }
+
+    /// <remarks>IEEE 754 total order is implied, as if <see cref="TotalOrderIeee754Comparer{T}"/> is used.</remarks>
+    /// <inheritdoc cref="RadixLsdSort{V}(Span{ulong}, Span{V}, int)" />
+    [SpecializationTemplate("double")]
+    public static void RadixLsdSort<V>(this Span<double> keys, Span<V> items)
+    {
+        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
+        Radix.Float<double>.LsdSort(keys, items);
+    }
+
+    /// <remarks>IEEE 754 total order is implied, as if <see cref="TotalOrderIeee754Comparer{T}"/> is used.</remarks>
+    /// <inheritdoc cref="RadixMsdSort{V}(Span{ulong}, Span{V}, int, MemoryProfile)" />
+    [SpecializationTemplate("double")]
+    public static void RadixMsdSort<V>(this Span<double> keys, Span<V> items, MemoryProfile profile = MemoryProfile.Baseline)
+    {
+        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
+        Radix.Float<double>.MsdSort(keys, items, profile);
+    }
+
 #if NET7_0_OR_GREATER
     /// <remarks>IEEE 754 total order is implied, as if <see cref="TotalOrderIeee754Comparer{T}"/> is used.</remarks>
     /// <inheritdoc cref="RadixLsdSort{T}(Span{T}, int)" />
@@ -47,42 +83,6 @@ public static partial class Extensions
         ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
         Radix.Float<K>.MsdSort(keys, items, profile);
     }
-#else
-    /// <remarks>IEEE 754 total order is implied, as if <see cref="TotalOrderIeee754Comparer{T}"/> is used.</remarks>
-    /// <inheritdoc cref="RadixLsdSort(Span{long}, int)" />
-    [SpecializationTemplate("double")]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void RadixLsdSort(this Span<double> span)
-    {
-        Radix.Float<double>.LsdSort(span);
-    }
-
-    /// <remarks>IEEE 754 total order is implied, as if <see cref="TotalOrderIeee754Comparer{T}"/> is used.</remarks>
-    /// <inheritdoc cref="RadixMsdSort(Span{long}, int, MemoryProfile)" />
-    [SpecializationTemplate("double")]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void RadixMsdSort(this Span<double> span, MemoryProfile profile = MemoryProfile.Baseline)
-    {
-        Radix.Float<double>.MsdSort(span, profile);
-    }
-
-    /// <remarks>IEEE 754 total order is implied, as if <see cref="TotalOrderIeee754Comparer{T}"/> is used.</remarks>
-    /// <inheritdoc cref="RadixLsdSort{V}(Span{long}, Span{V}, int)" />
-    [SpecializationTemplate("double")]
-    public static void RadixLsdSort<V>(this Span<double> keys, Span<V> items)
-    {
-        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
-        Radix.Float<double>.LsdSort(keys, items);
-    }
-
-    /// <remarks>IEEE 754 total order is implied, as if <see cref="TotalOrderIeee754Comparer{T}"/> is used.</remarks>
-    /// <inheritdoc cref="RadixMsdSort{V}(Span{long}, Span{V}, int, MemoryProfile)" />
-    [SpecializationTemplate("double")]
-    public static void RadixMsdSort<V>(this Span<double> keys, Span<V> items, MemoryProfile profile = MemoryProfile.Baseline)
-    {
-        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
-        Radix.Float<double>.MsdSort(keys, items, profile);
-    }
 #endif
 }
 
@@ -118,14 +118,14 @@ internal static partial class Radix
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static int Compare(ref readonly T a, ref readonly T b) => Comparer.Compare(a, b);
 
-        [OverloadTemplate(nameof(T), null, nameof(span), Disable = DefaultOverloads.SiblingSpecializations)]
+        [OverloadTemplate(nameof(T), null, nameof(span))]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static void FallbackSort(Span<T> span)
         {
             PDQ.Cmp<T, TotalOrderIeee754Comparer<T>>.Sort(span, Comparer);
         }
 
-        [OverloadTemplate(nameof(T), null, nameof(span), Disable = DefaultOverloads.SiblingSpecializations)]
+        [OverloadTemplate(nameof(T), null, nameof(span))]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static void FallbackSortStable(Span<T> span, MemoryProfile profile)
         {
@@ -135,7 +135,7 @@ internal static partial class Radix
                 Wiki.Cmp<T, TotalOrderIeee754Comparer<T>>.Sort(span, Comparer, profile);
         }
 
-        [OverloadTemplate(nameof(T), null, nameof(span), nameof(cache), Disable = DefaultOverloads.SiblingSpecializations)]
+        [OverloadTemplate(nameof(T), null, nameof(span), nameof(cache))]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static void FallbackSortStableReuse(Span<T> span, Span<T> cache)
         {
@@ -231,7 +231,7 @@ internal static partial class Radix
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static bool MsdSkipBucket(int _) => false;
 
-        [OverloadTemplate(nameof(T), null, nameof(span), Disable = DefaultOverloads.SiblingSpecializations)]
+        [OverloadTemplate(nameof(T), null, nameof(span))]
         [SkipLocalsInit]
         internal static void LsdSort(Span<T> span)
         {
@@ -245,7 +245,7 @@ internal static partial class Radix
                 FallbackSortStable(span, MemoryProfile.High);
         }
 
-        [OverloadTemplate(nameof(T), null, nameof(span), Disable = DefaultOverloads.SiblingSpecializations)]
+        [OverloadTemplate(nameof(T), null, nameof(span))]
         [SkipLocalsInit]
         internal static void MsdSort(Span<T> span, MemoryProfile profile)
         {

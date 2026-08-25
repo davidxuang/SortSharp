@@ -17,7 +17,7 @@ internal sealed class OverloadTemplateAttribute(string type, string? comparer, p
 internal enum DefaultOverloads : ushort
 {
     KeyValue = 1,
-    SiblingSpecializations = 2,
+    KeySelector = 2,
 
     Comparison = 1 << 8,
     TComparer = 1 << 9,
@@ -28,5 +28,7 @@ internal enum DefaultOverloads : ushort
 [Flags]
 internal enum OptionalOverloads : ushort
 {
-    LessThanOrEqual = 1,
+    SiblingSpecializations = 1,
+
+    LessThanOrEqual = 1 << 8,
 }

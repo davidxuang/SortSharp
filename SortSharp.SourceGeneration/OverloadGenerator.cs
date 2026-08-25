@@ -216,7 +216,7 @@ internal sealed partial class OverloadGenerator : IIncrementalGenerator
 
         if (sortAttr is not null && properties.HasFlag(SortProperties.NonComparison))
             return new TemplateMethod<BasicOptions>(decl, [.. usings], relative, ns, parent, symbol.Name, symbol.DeclaredAccessibility, behavior,
-                new(itemType!, itemIds, isSpan, disable));
+                new(itemType!, itemIds, isSpan, disable, enable));
         else if(string.IsNullOrEmpty(comparer) && itemIds.Length == 0)
             return new TemplateMethod<object>(decl, [.. usings], relative, ns, parent, symbol.Name, symbol.DeclaredAccessibility, behavior, null);
         else

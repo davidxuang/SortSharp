@@ -13,26 +13,16 @@ namespace SortSharp;
 
 public static partial class Extensions
 {
-#if NET7_0_OR_GREATER
     /// <remarks>The <see cref="StringComparison.Ordinal"/> order is implicitly used.</remarks>
-    /// <inheritdoc cref="RadixMsdSort{T}(Span{T}, Digit, MemoryProfile)" />
-#else
-    /// <remarks>The <see cref="StringComparison.Ordinal"/> order is implicitly used.</remarks>
-    /// <inheritdoc cref="RadixMsdSort(Span{long}, Digit, MemoryProfile)" />
-#endif
+    /// <inheritdoc cref="RadixMsdSort(Span{ulong}, Digit, MemoryProfile)" />
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void RadixMsdSort(this Span<string> span, MemoryProfile profile = MemoryProfile.Baseline)
     {
         Radix.Str.MsdSort(span, profile);
     }
 
-#if NET7_0_OR_GREATER
     /// <remarks>The <see cref="StringComparison.Ordinal"/> order is implicitly used.</remarks>
-    /// <inheritdoc cref="RadixMsdSort{K, V}(Span{K}, Span{V}, Digit, MemoryProfile)" />
-#else
-    /// <remarks>The <see cref="StringComparison.Ordinal"/> order is implicitly used.</remarks>
-    /// <inheritdoc cref="RadixMsdSort{V}(Span{long}, Span{V}, Digit, MemoryProfile)" />
-#endif
+    /// <inheritdoc cref="RadixMsdSort{V}(Span{ulong}, Span{V}, Digit, MemoryProfile)" />
     public static void RadixMsdSort<V>(this Span<string> keys, Span<V> items, MemoryProfile profile = MemoryProfile.Baseline)
     {
         ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
@@ -50,14 +40,14 @@ internal partial class Radix
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static int Compare(ref readonly string a, ref readonly string b) => Comparer.Compare(a, b);
 
-        [OverloadTemplate("string", null, nameof(span), Disable = DefaultOverloads.SiblingSpecializations)]
+        [OverloadTemplate("string", null, nameof(span))]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static void FallbackSort(Span<string> span)
         {
             PDQ.Cmp<string, IComparer<string>>.Sort(span, Comparer);
         }
 
-        [OverloadTemplate("string", null, nameof(span), Disable = DefaultOverloads.SiblingSpecializations)]
+        [OverloadTemplate("string", null, nameof(span))]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static void FallbackSortStable(Span<string> span, MemoryProfile profile)
         {
@@ -67,7 +57,7 @@ internal partial class Radix
                 Wiki.Cmp<string, IComparer<string>>.Sort(span, Comparer, profile);
         }
 
-        [OverloadTemplate("string", null, nameof(span), nameof(cache), Disable = DefaultOverloads.SiblingSpecializations)]
+        [OverloadTemplate("string", null, nameof(span), nameof(cache))]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static void FallbackSortStableReuse(Span<string> span, Span<string> cache)
         {
@@ -116,7 +106,7 @@ internal partial class Radix
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static bool MsdSkipBucket(int b) => b == 0;
 
-        [OverloadTemplate("string", null, nameof(span), Disable = DefaultOverloads.SiblingSpecializations)]
+        [OverloadTemplate("string", null, nameof(span))]
         [SkipLocalsInit]
         internal static void MsdSort(Span<string> span, MemoryProfile profile)
         {

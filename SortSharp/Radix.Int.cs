@@ -13,12 +13,67 @@ namespace SortSharp;
 
 public static partial class Extensions
 {
-#if NET7_0_OR_GREATER
     /// <summary>
     /// Sorts the elements using the least significant digit (LSD) radix sort algorithm,
     /// which is <see href="https://en.wikipedia.org/wiki/Sorting_algorithm#Stability">stable</see>.
     /// </summary>
-    /// <inheritdoc cref="RadixMsdSort{T}(Span{T}, int, MemoryProfile)" />
+    /// <param name="span">The span to sort.</param>
+    /// <param name="bitWidth">The number of bits to sort at each iteration.</param>
+    [SpecializationTemplate("ulong")]
+    public static void RadixLsdSort(this Span<ulong> span, int bitWidth = 8)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(bitWidth, 2);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(bitWidth, 12);
+        Radix.Int<ulong>.LsdSort(span, bitWidth);
+    }
+
+    /// <summary>
+    /// Sorts the elements using the most significant digit (MSD) radix sort algorithm,
+    /// which is <see href="https://en.wikipedia.org/wiki/Sorting_algorithm#Stability">stable</see> only if <paramref name="profile"/> is <see cref="MemoryProfile.High" /> or higher.
+    /// </summary>
+    /// <param name="span">The span to sort.</param>
+    /// <param name="bitWidth">The number of bits to sort at each iteration.</param>
+    /// <param name="profile">The profile to use for allocating temporary cache. A fixed limit is applied with the default profile.</param>
+    [SpecializationTemplate("ulong")]
+    public static void RadixMsdSort(this Span<ulong> span, int bitWidth = 8, MemoryProfile profile = MemoryProfile.Baseline)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(bitWidth, 2);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(bitWidth, 12);
+        Radix.Int<ulong>.MsdSort(span, bitWidth, profile);
+    }
+
+    /// <typeparam name="V">The type of the values.</typeparam>
+    /// <param name="keys">The span of keys to sort.</param>
+    /// <param name="items">The span of values to sort.</param>
+    /// <param name="bitWidth">The number of bits to sort at each iteration.</param>
+    /// <inheritdoc cref="RadixLsdSort(Span{ulong}, int)" />
+    [SpecializationTemplate("ulong")]
+    public static void RadixLsdSort<V>(this Span<ulong> keys, Span<V> items, int bitWidth = 8)
+    {
+        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
+        ArgumentOutOfRangeException.ThrowIfLessThan(bitWidth, 2);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(bitWidth, 12);
+        Radix.Int<ulong>.LsdSort(keys, items, bitWidth);
+    }
+
+    /// <typeparam name="V">The type of the values.</typeparam>
+    /// <param name="keys">The span of keys to sort.</param>
+    /// <param name="items">The span of values to sort.</param>
+    /// <param name="bitWidth">The number of bits to sort at each iteration.</param>
+    /// <param name="profile">The profile to use for allocating temporary cache. A fixed limit is applied with the default profile.</param>
+    /// <inheritdoc cref="RadixMsdSort(Span{ulong}, int, MemoryProfile)" />
+    [SpecializationTemplate("ulong")]
+    public static void RadixMsdSort<V>(this Span<ulong> keys, Span<V> items, int bitWidth = 8, MemoryProfile profile = MemoryProfile.Baseline)
+    {
+        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
+        ArgumentOutOfRangeException.ThrowIfLessThan(bitWidth, 2);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(bitWidth, 12);
+        Radix.Int<ulong>.MsdSort(keys, items, bitWidth, profile);
+    }
+
+#if NET7_0_OR_GREATER
+    /// <typeparam name="T">The type of elements.</typeparam>
+    /// <inheritdoc cref="RadixLsdSort(Span{ulong}, int)" />
     public static void RadixLsdSort<T>(this Span<T> span, int bitWidth = 8)
         where T : unmanaged, IBinaryInteger<T>, IMinMaxValue<T>
     {
@@ -27,14 +82,8 @@ public static partial class Extensions
         Radix.Int<T>.LsdSort(span, bitWidth);
     }
 
-    /// <summary>
-    /// Sorts the elements using the most significant digit (MSD) radix sort algorithm,
-    /// which is <see href="https://en.wikipedia.org/wiki/Sorting_algorithm#Stability">stable</see> only if <paramref name="profile"/> is <see cref="MemoryProfile.High" /> or higher.
-    /// </summary>
     /// <typeparam name="T">The type of elements.</typeparam>
-    /// <param name="span">The span to sort.</param>
-    /// <param name="bitWidth">The number of bits to sort at each iteration.</param>
-    /// <param name="profile">The profile to use for allocating temporary cache. A fixed limit is applied with the default profile.</param>
+    /// <inheritdoc cref="RadixMsdSort(Span{ulong}, int, MemoryProfile)" />
     public static void RadixMsdSort<T>(this Span<T> span, int bitWidth = 8, MemoryProfile profile = MemoryProfile.Baseline)
         where T : unmanaged, IBinaryInteger<T>, IMinMaxValue<T>
     {
@@ -43,12 +92,9 @@ public static partial class Extensions
         Radix.Int<T>.MsdSort(span, bitWidth, profile);
     }
 
-#pragma warning disable CS1573
     /// <typeparam name="K">The type of the keys.</typeparam>
     /// <typeparam name="V">The type of the values.</typeparam>
-    /// <param name="keys">The span of keys to sort.</param>
-    /// <param name="items">The span of values to sort.</param>
-    /// <inheritdoc cref="RadixLsdSort{T}(Span{T}, int)" />
+    /// <inheritdoc cref="RadixLsdSort{V}(Span{ulong}, Span{V}, int)" />
     public static void RadixLsdSort<K, V>(this Span<K> keys, Span<V> items, int bitWidth = 8)
         where K : unmanaged, IBinaryInteger<K>, IMinMaxValue<K>
     {
@@ -60,9 +106,7 @@ public static partial class Extensions
 
     /// <typeparam name="K">The type of the keys.</typeparam>
     /// <typeparam name="V">The type of the values.</typeparam>
-    /// <param name="keys">The span of keys to sort.</param>
-    /// <param name="items">The span of values to sort.</param>
-    /// <inheritdoc cref="RadixMsdSort{T}(Span{T}, int, MemoryProfile)" />
+    /// <inheritdoc cref="RadixMsdSort{V}(Span{ulong}, Span{V}, int, MemoryProfile)" />
     public static void RadixMsdSort<K, V>(this Span<K> keys, Span<V> items, int bitWidth = 8, MemoryProfile profile = MemoryProfile.Baseline)
         where K : unmanaged, IBinaryInteger<K>, IMinMaxValue<K>
     {
@@ -70,61 +114,6 @@ public static partial class Extensions
         ArgumentOutOfRangeException.ThrowIfLessThan(bitWidth, 2);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(bitWidth, 12);
         Radix.Int<K>.MsdSort(keys, items, bitWidth, profile);
-    }
-#pragma warning restore CS1573
-#else
-    /// <summary>
-    /// Sorts the elements using the least significant digit (LSD) radix sort algorithm,
-    /// which is <see href="https://en.wikipedia.org/wiki/Sorting_algorithm#Stability">stable</see>.
-    /// </summary>
-    /// <inheritdoc cref="RadixMsdSort(Span{sbyte}, int, MemoryProfile)" />
-    [SpecializationTemplate("sbyte")]
-    public static void RadixLsdSort(this Span<sbyte> span, int bitWidth = 8)
-    {
-        ArgumentOutOfRangeException.ThrowIfLessThan(bitWidth, 2);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(bitWidth, 12);
-        Radix.Int<sbyte>.LsdSort(span, bitWidth);
-    }
-
-    /// <summary>
-    /// Sorts the elements using the most significant digit (MSD) radix sort algorithm,
-    /// which is <see href="https://en.wikipedia.org/wiki/Sorting_algorithm#Stability">stable</see> only if <paramref name="profile"/> is <see cref="MemoryProfile.High" /> or higher.
-    /// </summary>
-    /// <param name="span">The span to sort.</param>
-    /// <param name="bitWidth">The number of bits to sort at each iteration.</param>
-    /// <param name="profile">The profile to use for allocating temporary cache. A fixed limit is applied with the default profile.</param>
-    [SpecializationTemplate("sbyte")]
-    public static void RadixMsdSort(this Span<sbyte> span, int bitWidth = 8, MemoryProfile profile = MemoryProfile.Baseline)
-    {
-        ArgumentOutOfRangeException.ThrowIfLessThan(bitWidth, 2);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(bitWidth, 12);
-        Radix.Int<sbyte>.MsdSort(span, bitWidth, profile);
-    }
-
-    /// <typeparam name="V">The type of the values.</typeparam>
-    /// <param name="keys">The span of keys to sort.</param>
-    /// <param name="items">The span of values to sort.</param>
-    /// <inheritdoc cref="RadixLsdSort(Span{sbyte}, int)" />
-    [SpecializationTemplate("sbyte")]
-    public static void RadixLsdSort<V>(this Span<sbyte> keys, Span<V> items, int bitWidth = 8)
-    {
-        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
-        ArgumentOutOfRangeException.ThrowIfLessThan(bitWidth, 2);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(bitWidth, 12);
-        Radix.Int<sbyte>.LsdSort(keys, items, bitWidth);
-    }
-
-    /// <typeparam name="V">The type of the values.</typeparam>
-    /// <param name="keys">The span of keys to sort.</param>
-    /// <param name="items">The span of values to sort.</param>
-    /// <inheritdoc cref="RadixMsdSort(Span{sbyte}, int, MemoryProfile)" />
-    [SpecializationTemplate("sbyte")]
-    public static void RadixMsdSort<V>(this Span<sbyte> keys, Span<V> items, int bitWidth = 8, MemoryProfile profile = MemoryProfile.Baseline)
-    {
-        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
-        ArgumentOutOfRangeException.ThrowIfLessThan(bitWidth, 2);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(bitWidth, 12);
-        Radix.Int<sbyte>.MsdSort(keys, items, bitWidth, profile);
     }
 #endif
 }
@@ -186,14 +175,14 @@ internal static partial class Radix
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static int Compare(ref readonly T a, ref readonly T b) => a.CompareTo(b);
 
-        [OverloadTemplate(nameof(T), null, nameof(span), Disable = DefaultOverloads.SiblingSpecializations)]
+        [OverloadTemplate(nameof(T), null, nameof(span))]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static void FallbackSort(Span<T> span)
         {
             PDQ.Op<T>.Sort(span);
         }
 
-        [OverloadTemplate(nameof(T), null, nameof(span), Disable = DefaultOverloads.SiblingSpecializations)]
+        [OverloadTemplate(nameof(T), null, nameof(span))]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static void FallbackSortStable(Span<T> span, MemoryProfile profile)
         {
@@ -203,7 +192,7 @@ internal static partial class Radix
                 Wiki.Cmp<T>.Sort(span, profile);
         }
 
-        [OverloadTemplate(nameof(T), null, nameof(span), nameof(cache), Disable = DefaultOverloads.SiblingSpecializations)]
+        [OverloadTemplate(nameof(T), null, nameof(span), nameof(cache))]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static void FallbackSortStableReuse(Span<T> span, Span<T> cache)
         {
@@ -322,7 +311,7 @@ internal static partial class Radix
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static bool MsdSkipBucket(int _) => false;
 
-        [OverloadTemplate(nameof(T), null)]
+        [OverloadTemplate(nameof(T), null, Enable = OptionalOverloads.SiblingSpecializations)]
         static void GetHistogram(ReadOnlySpan<T> span, Span<int> counts, ref readonly Digit digit)
         {
             ref readonly T first = ref span.Ref(0);
@@ -331,7 +320,7 @@ internal static partial class Radix
                 counts.Ref(Extract(in first, in digit))++;
         }
 
-        [OverloadTemplate(nameof(T), null, nameof(src), nameof(dst))]
+        [OverloadTemplate(nameof(T), null, nameof(src), nameof(dst), Enable = OptionalOverloads.SiblingSpecializations)]
         static void CopyByHistogram(ReadOnlySpan<T> src, Span<T> dst, Span<int> heads, ref readonly Digit digit)
         {
             for (int i = 0; i < src.Length; i++)
@@ -344,7 +333,7 @@ internal static partial class Radix
             }
         }
 
-        [OverloadTemplate(nameof(T), null, nameof(src), nameof(dst))]
+        [OverloadTemplate(nameof(T), null, nameof(src), nameof(dst), Enable = OptionalOverloads.SiblingSpecializations)]
         [SkipLocalsInit]
         static void LsdSortLoop(Span<T> src, Span<T> dst, Span<int> heads, LsdState state, bool parity = false)
         {
@@ -384,7 +373,7 @@ internal static partial class Radix
                 dst.CopyTo(src);
         }
 
-        [OverloadTemplate(nameof(T), null, nameof(span), Disable = DefaultOverloads.SiblingSpecializations)]
+        [OverloadTemplate(nameof(T), null, nameof(span))]
         [SkipLocalsInit]
         internal static void LsdSort(Span<T> span, int bitWidth)
         {
@@ -401,7 +390,7 @@ internal static partial class Radix
         }
 
         /// <remarks><see href="https://github.com/skarupke/radix_sort"/></remarks>
-        [OverloadTemplate(nameof(T), null, nameof(span))]
+        [OverloadTemplate(nameof(T), null, nameof(span), Enable = OptionalOverloads.SiblingSpecializations)]
         [SkipLocalsInit]
         static void SkaSwap(Span<T> span, Span<int> counts, Span<int> heads, int bucketCount, ref readonly Digit digit)
         {
@@ -466,7 +455,7 @@ internal static partial class Radix
             }
         }
 
-        [OverloadTemplate(nameof(T), null)]
+        [OverloadTemplate(nameof(T), null, Enable = OptionalOverloads.SiblingSpecializations)]
         static bool TestSorted(ReadOnlySpan<T> span, out int cmp)
         {
             Debug.Assert(span.Length >= 3);
@@ -484,7 +473,7 @@ internal static partial class Radix
             return true;
         }
 
-        [OverloadTemplate(nameof(T), null, nameof(src), nameof(dst))]
+        [OverloadTemplate(nameof(T), null, nameof(src), nameof(dst), Enable = OptionalOverloads.SiblingSpecializations)]
         [MethodImpl(MethodImplOptions.NoInlining)]
         static void MsdSortBuffered(Span<T> src, Span<T> dst, Span<int> heads, MsdState state, bool stable, bool parity = false)
         {
@@ -550,7 +539,7 @@ internal static partial class Radix
         }
 
         /// <remarks><see href="https://github.com/lakwet/voracious_sort" /></remarks>
-        [OverloadTemplate(nameof(T), null, nameof(span))]
+        [OverloadTemplate(nameof(T), null, nameof(span), Enable = OptionalOverloads.SiblingSpecializations)]
         [MethodImpl(MethodImplOptions.NoInlining)]
         static void MsdSortUnstable(Span<T> span, Span<int> heads, MsdState state, MemoryProfile profile, int heuristic = 2)
         {
@@ -610,7 +599,7 @@ internal static partial class Radix
             }
         }
 
-        [OverloadTemplate(nameof(T), null, nameof(span), Disable = DefaultOverloads.SiblingSpecializations)]
+        [OverloadTemplate(nameof(T), null, nameof(span))]
         [SkipLocalsInit]
         internal static void MsdSort(Span<T> span, int bitWidth, MemoryProfile profile)
         {

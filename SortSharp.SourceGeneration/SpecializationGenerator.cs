@@ -21,8 +21,7 @@ internal sealed class SpecializationGenerator : IIncrementalGenerator
             .Select(static (cmpl, _) =>
                 new Capabilities(
                     Half: cmpl.GetTypeByMetadataName("System.Half") is not null,
-                    NInt: cmpl.GetTypeByMetadataName("System.IntPtr") is ITypeSymbol symbol
-                        && symbol.AllInterfaces.Any(i => i.Name == "IComparable`1")));
+                    NInt: cmpl.GetTypeByMetadataName("System.IntPtr")?.AllInterfaces.Any(i => i.MetadataName == "System.IComparable`1") == true));
 
         context.RegisterSourceOutput(
             context.SyntaxProvider
@@ -82,11 +81,11 @@ internal sealed class SpecializationGenerator : IIncrementalGenerator
                 {
                     if (i != name) yield return i;
                 }
-                if (capabilities.NInt)
-                {
-                    yield return "nint";
-                    yield return "nuint";
-                }
+                //if (capabilities.NInt)
+                //{
+                //    yield return "nint";
+                //    yield return "nuint";
+                //}
             }
             else if (_float.Contains(name))
             {

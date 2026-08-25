@@ -12,7 +12,8 @@ partial class OverloadGenerator
         string ItemType,
         ImmutableArray<string> ItemNames,
         bool IsItemsSpan,
-        DefaultOverloads Disable);
+        DefaultOverloads Disable,
+        OptionalOverloads Enable);
 
     private static IEnumerable<GeneratedMethod> GenerateMethods(
         TemplateMethod<BasicOptions> template,
@@ -36,7 +37,7 @@ partial class OverloadGenerator
             yield return GeneratedMethod.Create(template, iw);
         }
 
-        if (options.Disable.HasFlag(DefaultOverloads.SiblingSpecializations))
+        if (!options.Enable.HasFlag(OptionalOverloads.SiblingSpecializations))
             yield break;
 
         foreach (var (target, typeName) in targets.Where(t => t.Item1.Containing?.HintName == template.OriginType.Containing!.HintName))

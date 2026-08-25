@@ -2,11 +2,11 @@
 
 namespace SortSharp;
 
-/// <remarks><see cref="MemoryProfile.Baseline"/></remarks>
+/// <remarks>Defaults to <see cref="MemoryProfile.Baseline"/>.</remarks>
 public enum MemoryProfile : sbyte
 {
     /// <summary>
-    /// Disables temporary buffer allocation.
+    /// Disables temporary buffer allocation whenever possible.
     /// Throws <see cref="ArgumentException"/> if the sort cannot be completed in-place.
     /// </summary>
     Minimum = sbyte.MinValue,
