@@ -8,7 +8,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using SortSharp.Compat;
 using SortSharp.Foundation;
-using SortSharp.SourceGeneration;
+using SortSharp.SourceGenerators;
 using static SortSharp.SpanOperations;
 
 namespace SortSharp;

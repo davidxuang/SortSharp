@@ -3,7 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using F = Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
-namespace SortSharp.SourceGeneration;
+namespace SortSharp.SourceGenerators;
 
 [Generator]
 internal sealed class InlineArrayGenerator : IIncrementalGenerator

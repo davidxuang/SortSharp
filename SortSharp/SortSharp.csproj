@@ -80,7 +80,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SortSharp.SourceGeneration\SortSharp.SourceGeneration.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" SkipGetTargetFrameworkProperties="true" UndefineProperties="TargetFramework" />
+    <ProjectReference Include="..\SortSharp.SourceGenerators\SortSharp.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" SkipGetTargetFrameworkProperties="true" UndefineProperties="TargetFramework" />
     <None Include="..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 

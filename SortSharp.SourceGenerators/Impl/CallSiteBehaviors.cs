@@ -1,4 +1,4 @@
-﻿namespace SortSharp.SourceGeneration;
+﻿namespace SortSharp.SourceGenerators;
 
 [Flags]
 internal enum CallSiteBehaviors : uint

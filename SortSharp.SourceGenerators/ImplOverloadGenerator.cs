@@ -8,7 +8,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 using F = Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
-namespace SortSharp.SourceGeneration;
+namespace SortSharp.SourceGenerators;
 
 [Generator]
 internal sealed partial class OverloadGenerator : IIncrementalGenerator

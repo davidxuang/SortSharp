@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 
-namespace SortSharp.SourceGeneration;
+namespace SortSharp.SourceGenerators;
 
 #pragma warning disable CS9113
 

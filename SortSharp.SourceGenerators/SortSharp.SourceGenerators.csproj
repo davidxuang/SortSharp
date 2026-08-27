@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\SortSharp\SourceGeneration\*.cs" Link="Link\%(FileName)%(Extension)" />
+    <Compile Include="..\SortSharp\SourceGenerators\*.cs" Link="Link\%(FileName)%(Extension)" />
   </ItemGroup>
 
 </Project>

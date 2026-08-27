@@ -5,7 +5,7 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using SortSharp.Compat;
-using SortSharp.SourceGeneration;
+using SortSharp.SourceGenerators;
 
 namespace SortSharp;
 
