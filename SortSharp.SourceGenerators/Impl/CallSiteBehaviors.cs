@@ -1,10 +1,11 @@
-﻿namespace SortSharp.SourceGenerators;
+﻿namespace SortSharp.SourceGenerators.Impl;
 
 [Flags]
 internal enum CallSiteBehaviors : uint
 {
     None = 0,
     RepeatCall = 1,
+
     RepeatArgument0 = 1u << 16,
     RepeatArgument1 = RepeatArgument0 << 1,
     RepeatArgument2 = RepeatArgument0 << 2,
@@ -21,4 +22,6 @@ internal enum CallSiteBehaviors : uint
     RepeatArgument13 = RepeatArgument0 << 13,
     RepeatArgument14 = RepeatArgument0 << 14,
     RepeatArgument15 = RepeatArgument0 << 15,
+    
+    Any = uint.MaxValue,
 }

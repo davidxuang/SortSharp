@@ -12,7 +12,10 @@ namespace SortSharp;
 public static partial class Extensions
 {
 #if NET7_0_OR_GREATER
-    /// <inheritdoc cref="PDQSort{T, TComparer}(Span{T}, TComparer)" />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="PDQ"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/TypeParams/Member[@name="T"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="span"]/*' />
+    [ApiTemplate(nameof(T))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void PDQSort<T>(this Span<T> span)
         where T : unmanaged, INumber<T>
@@ -26,30 +29,34 @@ public static partial class Extensions
     }
 #endif
 
-    /// <inheritdoc cref="PDQSort{T, TComparer}(Span{T}, TComparer)" />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="PDQ"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/TypeParams/Member[@name="T"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="span"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="comparer"]/*' />
+    [ApiTemplate(nameof(T))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void PDQSort<T>(this Span<T> span, IComparer<T>? comparer = null)
         => PDQSort<T, IComparer<T>?>(span, comparer);
 
-    /// <inheritdoc cref="PDQSort{T, TComparer}(Span{T}, TComparer)" />
-    public static void PDQSort<T>(this Span<T> span, Comparison<T> comparer)
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="PDQ"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/TypeParams/Member[@name="T"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="span"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="comparison"]/*' />
+    [ApiTemplate(nameof(T))]
+    public static void PDQSort<T>(this Span<T> span, Comparison<T> comparison)
     {
-        ArgumentNullException.ThrowIfNull(comparer, nameof(comparer));
+        ArgumentNullException.ThrowIfNull(comparison, nameof(comparison));
         if (span.Length <= 1)
             return;
 
-        PDQ.Fn<T>.Sort(span, comparer);
+        PDQ.Fn<T>.Sort(span, comparison);
     }
 
-    /// <summary>
-    /// Sorts the elements in the span using the <see href="https://github.com/orlp/pdqsort">Pattern-Defeating Quicksort</see> algorithm.
-    /// Branchless partitioning will be used if the element type is unmanaged and implements <see cref="INumber{TSelf}"/>.
-    /// </summary>
-    /// <typeparam name="T">The type of elements.</typeparam>
-    /// <typeparam name="TComparer">The type of the comparer.</typeparam>
-    /// <param name="span">The span to sort.</param>
-    /// <param name="comparer">The comparer to use for sorting.</param>
-    /// <remarks><seealso href="https://gist.github.com/hez2010/6b52929ee1755788c34818972c46aefb"/></remarks>
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="PDQ"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/TypeParams/Member[@name="T_TComparer"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="span"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="comparer"]/*' />
+    [ApiTemplate(nameof(T))]
     public static void PDQSort<T, TComparer>(this Span<T> span, TComparer comparer)
         where TComparer : IComparer<T>?
     {
@@ -64,66 +71,9 @@ public static partial class Extensions
         else
             PDQ.Cmp<T, IComparer<T>>.Sort(span, comparer);
     }
-
-#if NET7_0_OR_GREATER
-    /// <inheritdoc cref="PDQSort{K, V, TComparer}(Span{K}, Span{V}, TComparer)" />
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void PDQSort<K, V>(this Span<K> keys, Span<V> items)
-        where K : unmanaged, INumber<K>
-    {
-        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
-
-        if (keys.Length <= 1)
-            return;
-        else if (Dispatcher<K>.IsFloatingPointIeee)
-            Dispatcher<K>.To.PDQSort(keys, items);
-        else
-            PDQ.Op<K>.Sort(keys, items); 
-    }
-#endif
-
-    /// <inheritdoc cref="PDQSort{K, V, TComparer}(Span{K}, Span{V}, TComparer)" />
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void PDQSort<K, V>(this Span<K> keys, Span<V> items, IComparer<K>? comparer = null)
-        => PDQSort<K, V, IComparer<K>?>(keys, items, comparer);
-
-    /// <inheritdoc cref="PDQSort{K, V, TComparer}(Span{K}, Span{V}, TComparer)" />
-    public static void PDQSort<K, V>(this Span<K> keys, Span<V> items, Comparison<K> comparer)
-    {
-        ArgumentNullException.ThrowIfNull(comparer, nameof(comparer));
-        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
-
-        if (keys.Length <= 1)
-            return;
-        PDQ.Fn<K>.Sort(keys, items, comparer);
-    }
-
-    /// <typeparam name="K">The type of the keys.</typeparam>
-    /// <typeparam name="V">The type of the values.</typeparam>
-    /// <typeparam name="TComparer">The type of the comparer for the keys.</typeparam>
-    /// <param name="keys">The span of keys to sort.</param>
-    /// <param name="items">The span of values to sort.</param>
-    /// <param name="comparer">The comparer to use for sorting the keys.</param>
-    /// <inheritdoc cref="PDQSort{T, TComparer}(Span{T}, TComparer)" />
-    public static void PDQSort<K, V, TComparer>(this Span<K> keys, Span<V> items, TComparer comparer)
-        where TComparer : IComparer<K>?
-    {
-        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
-
-        if (keys.Length <= 1)
-            return;
-        else if (typeof(TComparer).IsValueType)
-#pragma warning disable CS8631
-            PDQ.Cmp<K, TComparer>.Sort(keys, items, comparer);
-#pragma warning restore CS8631
-        else if (comparer is null || comparer as IComparer<K> == Comparer<K>.Default)
-            Dispatcher<K>.To.PDQSort(keys, items);
-        else
-            PDQ.Cmp<K, IComparer<K>>.Sort(keys, items, (IComparer<K>?)comparer ?? Comparer<K>.Default);
-    }
 }
 
-[Sort]
+[Sort(Properties = SortProperties.Comparison)]
 internal static partial class PDQ
 {
     // Partitions below this size are sorted using insertion sort.
@@ -150,7 +100,7 @@ internal static partial class PDQ
     {
 //        // Sorts [start, end) using insertion sort with the given comparison function. Assumes
 //        // *(start - 1) is an element smaller than or equal to any element in [start, end).
-//        [OverloadTemplate(nameof(T), nameof(comp), nameof(first))]
+//        [ImplTemplate(nameof(T), nameof(first), Comparer = nameof(comp))]
 //        static void UnguardedInsertionSort(ref T first, int length, Comparison<T> comp)
 //        {
 //            if (length <= 1) return;
@@ -185,7 +135,7 @@ internal static partial class PDQ
         // Attempts to use insertion sort on [start, end). Will return false if more than
         // partial_insertion_sort_limit elements were moved, and abort sorting. Otherwise it will
         // successfully sort and return true.
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(first))]
+        [ImplTemplate(nameof(T), nameof(first), Comparer = nameof(comp))]
         static bool PartialInsertionSort(ref T first, int length, Comparison<T> comp)
         {
             if (length <= 1) return true;
@@ -223,7 +173,7 @@ internal static partial class PDQ
         }
         
         // Sorts the elements *a, *b and *c using comparison function comp.
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(a), nameof(b), nameof(c))]
+        [ImplTemplate(nameof(T), nameof(a), nameof(b), nameof(c), Comparer = nameof(comp))]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static void Sort3U(ref T a, ref T b, ref T c, Comparison<T> comp)
         {
@@ -235,7 +185,7 @@ internal static partial class PDQ
 
     partial class Op<T>
     {
-        [OverloadTemplate(nameof(T), null, nameof(first), nameof(last))]
+        [ImplTemplate(nameof(T), nameof(first), nameof(last))]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void SwapOffsets(ref T first, ref T last, ReadOnlySpan<byte> offsetsL, ReadOnlySpan<byte> offsetsR, int num, bool useSwaps)
         {
@@ -272,7 +222,7 @@ internal static partial class PDQ
         // partitioning and whether the passed sequence already was correctly partitioned. Assumes the
         // pivot is a median of at least 3 elements and that [start, end) is at least
         // insertion_sort_threshold long. Uses branchless partitioning.
-        [OverloadTemplate(nameof(T), null, nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span))]
         [SkipLocalsInit]
         static (int Pivot, bool HasPartitioned) PartitionRight(Span<T> span)
         {
@@ -437,7 +387,7 @@ internal static partial class PDQ
         // partitioning and whether the passed sequence already was correctly partitioned. Assumes the
         // pivot is a median of at least 3 elements and that [start, end) is at least
         // insertion_sort_threshold long.
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span), Disable = DefaultOverloads.IComparisonOperators)]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp), Disable = ComparerOverloads.IComparisonOperators)]
         static (int Pivot, bool HasPartitioned) PartitionRight(Span<T> span, Comparison<T> comp)
         {
             // Move pivot into local for speed.
@@ -494,7 +444,7 @@ internal static partial class PDQ
         // the pivot and it doesn't check or return if the passed sequence already was partitioned.
         // Since this is rarely used (the many equal case), and in that case pdqsort already has O(n)
         // performance, no block quicksort is applied here for simplicity.
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         static int PartitionLeft(Span<T> span, Comparison<T> comp)
         {
             T pivot = span.Ref(0);
@@ -532,7 +482,7 @@ internal static partial class PDQ
             return span.Offset(in last);
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         static void SortRec(Span<T> span, Comparison<T> comp, int badAllowed, bool leftmost = true)
         {
             while (true)
@@ -639,7 +589,7 @@ internal static partial class PDQ
             }
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Sort(Span<T> span, Comparison<T> comp)
         {

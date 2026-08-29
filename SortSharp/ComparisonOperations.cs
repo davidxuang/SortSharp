@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using SortSharp.Compat;
@@ -14,49 +13,52 @@ namespace SortSharp;
 public static partial class Extensions
 {
 #if NET7_0_OR_GREATER
-    /// <inheritdoc cref="LowerBound{T, TComparer}(ReadOnlySpan{T}, in T, TComparer)"/>
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="LowerBound"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/TypeParams/Member[@name="T"]/*' />
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int LowerBound<T>(this ReadOnlySpan<T> span, in T value)
         where T : unmanaged, IComparisonOperators<T, T, bool>
         => ComparisonOperations.Op<T>.LowerBound(span, value);
         
-    /// <inheritdoc cref="UpperBound{T, TComparer}(ReadOnlySpan{T}, in T, TComparer)"/>
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="UpperBound"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/TypeParams/Member[@name="T"]/*' />
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int UpperBound<T>(this ReadOnlySpan<T> span, in T value)
         where T : unmanaged, IComparisonOperators<T, T, bool>
         => ComparisonOperations.Op<T>.UpperBound(span, value);
 #endif
 
-    /// <inheritdoc cref="LowerBound{T, TComparer}(ReadOnlySpan{T}, in T, TComparer)"/>
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="LowerBound"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/TypeParams/Member[@name="T"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="comparer"]/*' />
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int LowerBound<T>(this ReadOnlySpan<T> span, in T value, IComparer<T>? comparer = null)
         => LowerBound(span, value, comparer);
 
-    /// <inheritdoc cref="UpperBound{T, TComparer}(ReadOnlySpan{T}, in T, TComparer)"/>
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="UpperBound"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/TypeParams/Member[@name="T"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="comparer"]/*' />
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int UpperBound<T>(this ReadOnlySpan<T> span, in T value, IComparer<T>? comparer = null)
         => UpperBound(span, value, comparer);
 
-    /// <inheritdoc cref="LowerBound{T, TComparer}(ReadOnlySpan{T}, in T, TComparer)"/>
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="LowerBound"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/TypeParams/Member[@name="T"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="comparison"]/*' />
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static int LowerBound<T>(this ReadOnlySpan<T> span, in T value, Comparison<T> comparer)
-        => ComparisonOperations.Fn<T>.LowerBound(span, value, comparer);
+    public static int LowerBound<T>(this ReadOnlySpan<T> span, in T value, Comparison<T> comparison)
+        => ComparisonOperations.Fn<T>.LowerBound(span, value, comparison);
 
-    /// <inheritdoc cref="UpperBound{T, TComparer}(ReadOnlySpan{T}, in T, TComparer)"/>
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="UpperBound"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/TypeParams/Member[@name="T"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="comparison"]/*' />
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static int UpperBound<T>(this ReadOnlySpan<T> span, in T value, Comparison<T> comparer)
-        => ComparisonOperations.Fn<T>.UpperBound(span, value, comparer);
+    public static int UpperBound<T>(this ReadOnlySpan<T> span, in T value, Comparison<T> comparison)
+        => ComparisonOperations.Fn<T>.UpperBound(span, value, comparison);
 
-    /// <summary>
-    /// Searches for the first element in the span which is not ordered before <paramref name="value"/>.
-    /// </summary>
-    /// <typeparam name="T">The type of elements.</typeparam>
-    /// <typeparam name="TComparer">The type of the comparer.</typeparam>
-    /// <param name="span">The elements to examine, which must be sorted according to the specified comparer.</param>
-    /// <param name="value">The value to compare the elements to.</param>
-    /// <param name="comparer">The comparer to use for comparison.</param>
-    /// <returns>The index of the first element in the span which is not ordered before <paramref name="value"/>, or <paramref name="span"/>.Length if no such element is found.</returns>
-    /// <remarks><seealso href="https://en.cppreference.com/cpp/algorithm/lower_bound"/></remarks>
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="LowerBound"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/TypeParams/Member[@name="T_TComparer"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="comparer"]/*' />
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int LowerBound<T, TComparer>(this ReadOnlySpan<T> span, in T value, TComparer comparer)
         where TComparer : IComparer<T>?
@@ -73,16 +75,9 @@ public static partial class Extensions
             return ComparisonOperations.Cmp<T, IComparer<T>>.LowerBound(span, value, comparer);
     }
 
-    /// <summary>
-    /// Searches for the first element in the span which is ordered after <paramref name="value"/>.
-    /// </summary>
-    /// <typeparam name="T">The type of elements.</typeparam>
-    /// <typeparam name="TComparer">The type of the comparer.</typeparam>
-    /// <param name="span">The elements to examine, which must be sorted according to the specified comparer.</param>
-    /// <param name="value">The value to compare the elements to.</param>
-    /// <param name="comparer">The comparer to use for comparison.</param>
-    /// <returns>The index of the first element in the span which is ordered after <paramref name="value"/>, or <paramref name="span"/>.Length if no such element is found.</returns>
-    /// <remarks><seealso href="https://en.cppreference.com/cpp/algorithm/upper_bound"/></remarks>
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="UpperBound"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/TypeParams/Member[@name="T_TComparer"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="comparer"]/*' />
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int UpperBound<T, TComparer>(this ReadOnlySpan<T> span, in T value, TComparer comparer)
         where TComparer : IComparer<T>?
@@ -100,12 +95,11 @@ public static partial class Extensions
     }
 }
 
-internal abstract partial class ComparisonOperations
+internal static partial class ComparisonOperations
 {
-    protected const int MaxStackAllocSize = 1 << 16;
-
-    internal abstract partial class Fn<T> : ComparisonOperations
+    internal abstract partial class Fn<T>
     {
+        [ImplTemplate(nameof(T), Comparer = nameof(comp), Disable = ComparerOverloads.All)]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected static bool Less(ref readonly T a, ref readonly T b, Comparison<T> comp)
             => comp(a, b) < 0;
@@ -113,8 +107,8 @@ internal abstract partial class ComparisonOperations
         protected static int Compare(ref readonly T a, ref readonly T b, Comparison<T> comp)
             => comp(a, b);
 
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(a), nameof(b),
-            Disable = DefaultOverloads.IComparable | DefaultOverloads.IComparisonOperators)]
+        [ImplTemplate(nameof(T), nameof(a), nameof(b), Comparer = nameof(comp),
+            Disable = ComparerOverloads.IComparable | ComparerOverloads.IComparisonOperators)]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected static void CmpEx(ref T a, ref T b, Comparison<T> comp)
         {
@@ -137,7 +131,7 @@ internal abstract partial class ComparisonOperations
     /// The less-than operation used here does not provide a total order for NaN values.
     /// </para>
     /// </remarks>
-    internal abstract partial class Op<T> : ComparisonOperations
+    internal abstract partial class Op<T>
 #if NET7_0_OR_GREATER
         where T : unmanaged, IComparisonOperators<T, T, bool>
 #else
@@ -169,7 +163,7 @@ internal abstract partial class ComparisonOperations
         }
 #endif
 
-        [OverloadTemplate(nameof(T), null, nameof(a), nameof(b))]
+        [ImplTemplate(nameof(T), nameof(a), nameof(b))]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected static void CmpEx(ref T a, ref T b)
         {
@@ -181,7 +175,7 @@ internal abstract partial class ComparisonOperations
         }
     }
 
-    internal abstract partial class Cmp<T> : ComparisonOperations
+    internal abstract partial class Cmp<T>
         where T : IComparable<T>
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -212,7 +206,7 @@ internal abstract partial class ComparisonOperations
                 ? a.CompareTo(b)
                 : b is null ? 0 : -1;
 
-        [OverloadTemplate(nameof(T), null, nameof(a), nameof(b))]
+        [ImplTemplate(nameof(T), nameof(a), nameof(b))]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected static void CmpEx(ref T a, ref T b)
         {
@@ -224,7 +218,7 @@ internal abstract partial class ComparisonOperations
         }
     }
 
-    internal abstract partial class Cmp<T, C> : ComparisonOperations
+    internal abstract partial class Cmp<T, C>
         where C : IComparer<T>
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -237,7 +231,7 @@ internal abstract partial class ComparisonOperations
 
     internal abstract partial class Fn<T>
     {
-        [OverloadTemplate(nameof(T), nameof(comp))]
+        [ImplTemplate(nameof(T), Comparer = nameof(comp))]
         public static int LowerBound(ReadOnlySpan<T> span, in T value, Comparison<T> comp)
         {
             int i = 0;
@@ -260,7 +254,7 @@ internal abstract partial class ComparisonOperations
             return i;
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp))]
+        [ImplTemplate(nameof(T), Comparer = nameof(comp))]
         public static int UpperBound(ReadOnlySpan<T> span, in T value, Comparison<T> comp)
         {
             int i = 0;
@@ -283,7 +277,7 @@ internal abstract partial class ComparisonOperations
             return i;
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span), nameof(target))]
+        [ImplTemplate(nameof(T), nameof(span), nameof(target), Comparer = nameof(comp))]
         protected static void Merge(ReadOnlySpan<T> span, int split, Span<T> target, Comparison<T> comp)
         {
             Debug.Assert(split > 0 && split < span.Length);
@@ -323,7 +317,7 @@ internal abstract partial class ComparisonOperations
             }
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         protected static void HeapSort(Span<T> span, Comparison<T> comp)
         {
             if (span.Length == 0) return;
@@ -340,7 +334,7 @@ internal abstract partial class ComparisonOperations
             }
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static void DownHeap(Span<T> span, int i, int n, Comparison<T> comp)
         {
@@ -365,7 +359,7 @@ internal abstract partial class ComparisonOperations
 
         // Sorts the range of the given length beginning at first using insertion sort with the given
         // comparison function.
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(first))]
+        [ImplTemplate(nameof(T), nameof(first), Comparer = nameof(comp))]
         protected static void InsertionSort(ref T first, int length, Comparison<T> comp, int offset = 0)
         {
             if ((length -= offset) <= 1) return;

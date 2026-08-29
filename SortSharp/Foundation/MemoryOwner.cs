@@ -12,11 +12,14 @@ internal ref struct MemoryOwner<T>(IMemoryOwner<T> owner, int? length = null) : 
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IMemoryOwner<T> Attach(IMemoryOwner<T> value)
-        => _owner = _owner is null ? value : throw new InvalidOperationException();
+    {
+        if (_owner is not null)
+            ThrowHelper.ThrowInvalidOperation("A memory owner is already attached.");
+        return _owner = value;
+    }
 
-    public readonly Memory<T> Memory => _owner is not null
-        ? _owner.Memory
-        : throw new NullReferenceException();
+    /// <exception cref="NullReferenceException"/>
+    public readonly Memory<T> Memory => _owner!.Memory;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose()

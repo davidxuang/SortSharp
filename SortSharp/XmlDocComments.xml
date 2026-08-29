@@ -1,0 +1,223 @@
+<?xml version="1.0"?>
+<XmlDocComments>
+
+  <Common>
+    <Member name="LowerBound">
+      <summary>
+        Searches for the first element in the span which is not ordered before <paramref name="value" />.
+      </summary>
+      <param name="span">
+        The elements to examine, which must be sorted according to the specified comparer.
+      </param>
+      <param name="value">
+        The value to compare the elements to.
+      </param>
+      <returns>
+        The index of the first element in the span which is not ordered before <paramref name="value"/>, or <see cref="Span{T}.Length"/> if no such element is found.
+      </returns>
+      <seealso href="https://en.cppreference.com/cpp/algorithm/lower_bound"/>
+    </Member>
+    <Member name="UpperBound">
+      <summary>
+        Searches for the first element in the span which is ordered after <paramref name="value"/>.
+      </summary>
+      <param name="span">
+        The elements to examine, which must be sorted according to the specified comparer.
+      </param>
+      <param name="value">
+        The value to compare the elements to.
+      </param>
+      <returns>
+        The index of the first element in the span which is ordered after <paramref name="value"/>, or <see cref="Span{T}.Length"/> if no such element is found.
+      </returns>
+      <seealso href="https://en.cppreference.com/cpp/algorithm/upper_bound"/>
+    </Member>
+    
+    <Member name="IPN">
+      <summary>
+        Sorts the elements using the <see href="https://github.com/Voultapher/sort-research-rs/blob/main/writeup/ipnsort_introduction/text.md">Instruction-Parallel-Network Sort</see> algorithm.
+        <para>Branchless partitioning will be used if the element type is unmanaged and implements <see cref="INumber{TSelf}"/>.</para>
+      </summary>
+      <exception cref="InvalidOperationException">
+        The ordering invariant is violated,
+        causing by an inconsistent comparer or concurrent modification on the elements.
+      </exception>
+    </Member>
+    <Member name="PDQ">
+      <summary>
+        Sorts the elements using the <see href="https://github.com/orlp/pdqsort">Pattern-Defeating Quicksort</see> algorithm.
+        <para>Branchless partitioning is used if the element type is unmanaged and implements <see cref="INumber{TSelf}"/>.</para>
+      </summary>
+      <exception cref="InvalidOperationException">
+        The ordering invariant is violated,
+        causing by an inconsistent comparer or concurrent modification on the elements.
+      </exception>
+      <seealso href="https://gist.github.com/hez2010/6b52929ee1755788c34818972c46aefb"/>
+    </Member>
+    
+    <Member name="Grail">
+      <summary>
+        Sorts the elements using the <see href="https://github.com/HolyGrailSortProject/Rewritten-Grailsort">GrailSort</see> algorithm,
+        which is a <see href="https://sortingalgos.miraheze.org/wiki/Stability">stable</see> block merge sort algorithm.
+      </summary>
+    </Member>
+    <Member name="Wiki">
+      <summary>
+        Sorts the elements using the <see href="https://github.com/BonzaiThePenguin/WikiSort">WikiSort</see> algorithm,
+        which is a <see href="https://sortingalgos.miraheze.org/wiki/Stability">stable</see> block merge sort algorithm.
+      </summary>
+    </Member>
+
+    <Member name="RadixLsd">
+      <summary>
+        Sorts the elements using the least significant digit (LSD) radix sort algorithm,
+        which is <see href="https://sortingalgos.miraheze.org/wiki/Stability">stable</see>.
+      </summary>
+      <exception cref="InvalidOperationException">
+        The ordering invariant is violated,
+        possibly causing by an inconsistent comparer or concurrent modifications on the elements.
+      </exception>
+    </Member>
+    <Member name="RadixMsd">
+      <summary>
+        Sorts the elements using the most significant digit (MSD) radix sort algorithm,
+        which is <see href="https://sortingalgos.miraheze.org/wiki/Stability">stable</see> only if <paramref name="profile"/> is <see cref="MemoryProfile.High" /> or higher.
+      </summary>
+      <exception cref="InvalidOperationException">
+        The ordering invariant is violated,
+        possibly causing by an inconsistent comparer or concurrent modifications on the elements.
+      </exception>
+    </Member>
+
+    <Member name="Radix_TotalOrderIeee754">
+      <remarks>
+        Values are ordered according to the IEEE 754 totalOrder predicate,
+        consistently with <see cref="TotalOrderIeee754Comparer{T}"/>.
+      </remarks>
+    </Member>
+    <Member name="Radix_IBinaryFloatingPointIeee754">
+      <remarks>
+        <para>
+          The unmanaged representation of the type must contain a contiguous IEEE 754
+          binary interchange representation starting at byte offset zero
+          and stored in the native byte order as indicated by <see cref="BitConverter.IsLittleEndian"/>.
+        </para>
+        <para>
+          Its bitwise-complement and unary-negation operators must behave
+          in the same manner as those of the built-in binary floating-point types.
+        </para>
+        <para>
+          Elements are ordered according to the IEEE 754 <c>totalOrder</c> predicate,
+          consistently with <see cref="TotalOrderIeee754Comparer{T}"/>.
+        </para>
+      </remarks>
+    </Member>
+    <Member name="StringOrdinal">
+      <remarks>
+        Elements are ordered according to <see cref="StringComparison.Ordinal"/>.
+      </remarks>
+    </Member>
+    <Member name="IPAddressV4">
+      <exception cref="NullReferenceException">
+        The input contains a <c>null</c> <see cref="IPAddress"/> instance.
+      </exception>
+      <exception cref="System.Net.Sockets.SocketException">
+        The input contains a <see cref="IPAddress"/> instance whose address family is not <see cref="System.Net.Sockets.AddressFamily.InterNetwork"/>.
+      </exception>
+    </Member>
+    <Member name="IPAddressV6">
+      <remarks>
+        IPv4 addresses are <see href="https://www.rfc-editor.org/info/rfc4291/#section-2.5.5.2">mapped</see>
+        to IPv6 addresses (<c>::FFFF:x.y.z.w</c>) with undefined <see cref="IPAddress.ScopeId"/> for ordering.
+      </remarks>
+    </Member>
+  </Common>
+
+  <TypeParams>
+    <Member name="T">
+      <typeparam name="T">The type of the elements of the span.</typeparam>
+    </Member>
+    <Member name="T_TComparer">
+      <typeparam name="T">The type of the elements of the span.</typeparam>
+      <typeparam name="TComparer">The type of the comparer to use to compare elements.</typeparam>
+    </Member>
+    <Member name="V">
+      <typeparam name="V">The type of the elements of the items span.</typeparam>
+    </Member>
+    <Member name="K_V">
+      <typeparam name="K">The type of the elements of the key span.</typeparam>
+      <typeparam name="V">The type of the elements of the items span.</typeparam>
+    </Member>
+    <Member name="K_V_TComparer">
+      <typeparam name="K">The type of the elements of the key span.</typeparam>
+      <typeparam name="V">The type of the elements of the items span.</typeparam>
+      <typeparam name="TComparer">The type of the comparer to use to compare elements.</typeparam>
+    </Member>
+    <Member name="T_TSelector">
+      <typeparam name="T">The type of the elements of the span.</typeparam>
+      <typeparam name="TSelector">
+        The type of the selector to get the key from a element.
+        The <see cref="IKeySelector{T,TKey}.Select"/> call is expected to be as inexpensive as possible.
+      </typeparam>
+    </Member>
+    <Member name="T_K_TSelector">
+      <typeparam name="T">The type of the elements of the span.</typeparam>
+      <typeparam name="K">The type of the keys of the elements.</typeparam>
+      <typeparam name="TSelector">
+        The type of the selector to get the key from a element.
+        The <see cref="IKeySelector{T,TKey}.Select"/> call is expected to be as inexpensive as possible.
+      </typeparam>
+    </Member>
+  </TypeParams>
+
+  <Params>
+    <Member name="span">
+      <param name="span">The span of memory to sort.</param>
+    </Member>
+    <Member name="keys_items">
+      <param name="keys">The span that contains the keys to sort.</param>
+      <param name="items">The span that contains the items that correspond to the keys in keys.</param>
+      <exception cref="ArgumentOutOfRangeException">
+        The length of <paramref name="keys"/> isn't equal to the length of <paramref name="items"/>.
+      </exception>
+      <remarks>
+        The result is undefined if <paramref name="keys"/> overlaps with <paramref name="items"/>.
+      </remarks>
+    </Member>
+    <Member name="comparison">
+      <param name="comparison">The method to use when comparing elements.</param>
+      <exception cref="ArgumentNullException">
+        <paramref name="comparison"/> is <c>null</c>.
+      </exception>
+    </Member>
+    <Member name="comparer">
+      <param name="comparer">
+        The <see cref="IComparer{T}"/> implementation to use when comparing elements,
+        or <c>null</c> to use the <see cref="IComparable{T}"/> interface implementation of each element.
+      </param>
+      <exception cref="ArgumentException">
+        Type <c>T</c> or <c>K</c> does not implement either the <see cref="IComparable{T}"/> generic interface or the <see cref="IComparable"/> interface.
+      </exception>
+    </Member>
+    <Member name="order">
+      <param name="order">
+        The byte order of the number.
+      </param>
+    </Member>
+    <Member name="bitwidth">
+      <param name="bitwidth">
+        The number of bits to sort at each iteration, in the range of <c>[2, 12]</c>.
+      </param>
+      <exception cref="ArgumentOutOfRangeException">
+        The specified <paramref name="bitwidth"/> is out of the allowed range.
+      </exception>
+    </Member>
+    <Member name="profile">
+      <param name="profile">
+        The profile to use for allocating temporary cache.
+        A fixed limit is applied with the default profile.
+      </param>
+    </Member>
+  </Params>
+
+</XmlDocComments>

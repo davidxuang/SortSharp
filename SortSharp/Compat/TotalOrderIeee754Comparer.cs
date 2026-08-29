@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using SortSharp.Foundation;
 
 namespace SortSharp.Compat;
 
 #if !NET8_0_OR_GREATER
-/// <remarks><see href="https://github.com/dotnet/dotnet/blob/v11.0.100/src/runtime/src/libraries/System.Private.CoreLib/src/System/Numerics/TotalOrderIeee754Comparer.cs"/></remarks>
+/// <seealso href="https://github.com/dotnet/dotnet/blob/v11.0.100/src/runtime/src/libraries/System.Private.CoreLib/src/System/Numerics/TotalOrderIeee754Comparer.cs"/>
 [SkipLocalsInit]
 internal readonly struct TotalOrderIeee754Comparer<T> : IComparer<T>, IEquatable<TotalOrderIeee754Comparer<T>>
 #if NET7_0_OR_GREATER
@@ -28,7 +29,8 @@ internal readonly struct TotalOrderIeee754Comparer<T> : IComparer<T>, IEquatable
 #if NET7_0_OR_GREATER
         return CompareGeneric(x, y);
 #else
-        throw new ArgumentException(nameof(T));
+        ThrowHelper.ThrowUnreachable();
+        return 0; // unreachable
 #endif
     }
 
@@ -160,7 +162,8 @@ internal readonly struct TotalOrderIeee754Comparer<T> : IComparer<T>, IEquatable
             else
             {
                 // T does not correctly implement IEEE754 semantics
-                throw new ArgumentException(nameof(T));
+                ThrowHelper.ThrowArgument(ArgumentException.MsgInvalidArgumentForComparison, nameof(T));
+                return 0; // unreachable
             }
         }
     }

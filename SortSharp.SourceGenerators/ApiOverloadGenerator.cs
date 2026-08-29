@@ -1,17 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Xml.Linq;
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using SortSharp.SourceGenerators.Api;
+using SortSharp.SourceGenerators.Common;
 
 namespace SortSharp.SourceGenerators;
 
 [Generator]
-internal sealed class SpecializationGenerator : IIncrementalGenerator
+internal sealed class ApiOverloadGenerator : IIncrementalGenerator
 {
-    private record struct Capabilities(bool Half, bool NInt);
+    private record struct Capabilities(bool IKeySelector, bool Half, bool NInt);
 
     private static readonly CSharpSyntaxRewriter trimmer = new TrimmingRewriter();
 
@@ -20,24 +18,25 @@ internal sealed class SpecializationGenerator : IIncrementalGenerator
         var capabilities = context.CompilationProvider
             .Select(static (cmpl, _) =>
                 new Capabilities(
+                    IKeySelector: cmpl.GetTypeByMetadataName(typeof(IKeySelector<,>).FullName)?.DeclaredAccessibility == Accessibility.Public,
                     Half: cmpl.GetTypeByMetadataName("System.Half") is not null,
-                    NInt: cmpl.GetTypeByMetadataName("System.IntPtr")?.AllInterfaces.Any(i => i.MetadataName == "System.IComparable`1") == true));
+                    NInt: cmpl.GetTypeByMetadataName("System.IntPtr")?.AllInterfaces.Any(i => i.ImplementsInterface(typeof(IComparable<>))) == true));
 
         context.RegisterSourceOutput(
             context.SyntaxProvider
                 .ForAttributeWithMetadataName(
-                    $"{typeof(OverloadTemplateAttribute).Namespace}.{nameof(SpecializationTemplateAttribute)}",
+                    $"{typeof(ImplTemplateAttribute).Namespace}.{nameof(ApiTemplateAttribute)}",
                     static (node, _) => node is MethodDeclarationSyntax,
                     static (ctx, ct) => ctx)
                 .Combine(capabilities)
                 .SelectMany(static (tuple, _) =>
                 {
                     var (ctx, capabilities) = tuple;
-                    return GetGeneratedMethods(ctx, capabilities);
+                    return GenerateMethods(ctx, capabilities);
                 })
                 .Collect()
                 .Select(static (methods, _) =>
-                    OverloadGenerator.RenderFiles(methods, (decl, meta) => decl)),
+                    GeneratedMethod.Render(methods, static (decl, meta) => decl)),
             static (spc, files) =>
             {
                 foreach (var file in files)
@@ -48,11 +47,11 @@ internal sealed class SpecializationGenerator : IIncrementalGenerator
     static readonly HashSet<string> _int = ["sbyte", "byte", "short", "ushort", "int", "uint", "long", "ulong"];
     static readonly HashSet<string> _float = ["float", "double"];
 
-    static IEnumerable<OverloadGenerator.GeneratedMethod> GetGeneratedMethods(GeneratorAttributeSyntaxContext ctx, Capabilities capabilities)
+    static IEnumerable<GeneratedMethod> GenerateMethods(GeneratorAttributeSyntaxContext ctx, Capabilities capabilities)
     {
         var decl = (MethodDeclarationSyntax)ctx.TargetNode;
         var symbol = ctx.SemanticModel.GetDeclaredSymbol(decl)!;
-        var type = OverloadGenerator.ResolveType(symbol.ContainingType);
+        var type = TypeDef.Resolve(symbol.ContainingType);
 
         IEnumerable<string> segments = decl.SyntaxTree.FilePath.Split('\\', '/');
         segments = segments.Reverse().Skip(1).TakeWhile(s => !s.StartsWith("SortSharp")).Reverse();
@@ -61,17 +60,56 @@ internal sealed class SpecializationGenerator : IIncrementalGenerator
 
         var attr = ctx.Attributes[0];
         var source = (string)attr.ConstructorArguments[0].Value!;
+        bool isSourceGeneric = symbol.TypeParameters.Any(p => p.Name == source);
+        bool keySelector = attr.GetNamedArgument(nameof(ApiTemplateAttribute.KeySelector), false);
+        var calls = new ApiCallInfo(decl, ctx.SemanticModel);
 
         foreach (var target in targets(capabilities, decl, source))
         {
-            var rewritter = new SpecializationRewriter(source, target);
-            yield return new OverloadGenerator.GeneratedMethod(
-                (MethodDeclarationSyntax)trimmer.Visit(rewritter.Visit(decl)),
-                [.. decl.SyntaxTree.GetCompilationUnitRoot().Usings.Select(u => u.WithoutTrivia().ToFullString())],
-                Path.Combine([.. segments.Where(s => !string.IsNullOrEmpty(s))]),
-                symbol.ContainingNamespace.ToDisplayString(),
-                type);
+            var rewritter = new TypeRewriter(source, target);
+            yield return Create(rewritter.Visit(decl));
         }
+
+        string?[] variants = isSourceGeneric ? [null] : [source, .. targets(capabilities, decl, source)];
+        if (calls.HasFrom)
+        {
+            if (capabilities.IKeySelector)
+                foreach (string? target in variants)
+                {
+                    SyntaxNode? variant = new KeySelectorRewriter(
+                        calls, source, isSourceGeneric, composed: true).Visit(decl);
+                    if (target is not null && target != source)
+                        variant = new TypeRewriter(source, target).Visit(variant);
+                    yield return Create(variant);
+                }
+        }
+        else
+        {
+            foreach (string? target in variants)
+            {
+                SyntaxNode? variant = new KeyValueRewriter(calls, source, isSourceGeneric).Visit(decl);
+                if (target is not null && target != source)
+                    variant = new TypeRewriter(source, target).Visit(variant);
+                yield return Create(variant);
+            }
+
+            if (keySelector && capabilities.IKeySelector)
+                foreach (string? target in variants)
+                {
+                    SyntaxNode? variant = new KeySelectorRewriter(calls, source, isSourceGeneric, composed: false).Visit(decl);
+                    if (target is not null && target != source)
+                        variant = new TypeRewriter(source, target).Visit(variant);
+                    yield return Create(variant);
+                }
+        }
+
+        GeneratedMethod Create(SyntaxNode? declaration) => new(
+            (MethodDeclarationSyntax)(trimmer.Visit(declaration)
+                ?? throw new InvalidOperationException()),
+            [.. decl.SyntaxTree.GetCompilationUnitRoot().Usings.Select(u => u.WithoutTrivia().ToFullString())],
+            Path.Combine([.. segments.Where(s => !string.IsNullOrEmpty(s))]),
+            symbol.ContainingNamespace.ToDisplayString(),
+            type);
 
         static IEnumerable<string> targets(Capabilities capabilities, MethodDeclarationSyntax decl, string name)
         {

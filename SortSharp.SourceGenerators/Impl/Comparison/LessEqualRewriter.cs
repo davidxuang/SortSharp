@@ -3,7 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using F = Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
-namespace SortSharp.SourceGenerators.Comparison;
+namespace SortSharp.SourceGenerators.Impl.Comparison;
 
 internal sealed class LessEqualRewriter : CSharpSyntaxRewriter
 {

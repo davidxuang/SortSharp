@@ -10,16 +10,12 @@ namespace SortSharp.SourceGenerators;
 internal sealed class SortAttribute : Attribute
 {
     public SortProperties Properties { get; set; }
-    public DefaultOverloads Disable { get; set; }
+    public ComparerOverloads Disable { get; set; }
 }
-
-[Conditional("__NEVER__")]
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = false, Inherited = false)]
-internal sealed class SortSpecializationAttribute(string? type = null) : Attribute;
 
 [Flags]
 internal enum SortProperties : ushort
 {
-    NonComparison = 1,
+    Comparison = 1,
     Stable = 1 << 1,
 }

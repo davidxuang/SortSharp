@@ -2,7 +2,7 @@
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace SortSharp.SourceGenerators;
+namespace SortSharp.SourceGenerators.Common;
 
 internal class TrimmingRewriter : CSharpSyntaxRewriter
 {

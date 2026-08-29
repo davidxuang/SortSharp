@@ -1,42 +1,57 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using SortSharp.SourceGenerators.Common;
 using F = Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
-namespace SortSharp.SourceGenerators;
+namespace SortSharp.SourceGenerators.Impl;
 
-internal class ItemsRewriter(
-    IDictionary<string, CallSiteBehaviors> behaviors,
-    string typeName,
-    IEnumerable<(string, string)> k,
-    IEnumerable<(string, string)> v) : CSharpSyntaxRewriter
+internal sealed class KeyValueRewriter : CSharpSyntaxRewriter
 {
-    private readonly IdentifierRewriter _K = new(null, k);
-    private readonly IdentifierRewriter _V = new(new TypeParameterRewriter(typeName, "V"), v);
-    private readonly HashSet<string> _RO = new();
+    private readonly IEnumerable<InvocationInfo> infos;
+    private readonly string typeName;
+    private readonly IdentifierRewriter _K;
+    private readonly IdentifierRewriter _VI;
+    private readonly ComposedRewriter _V;
+    private static readonly StackallocRewriter _S = new("V");
+    private readonly HashSet<string> _RO = [];
+
+    public KeyValueRewriter(
+        IEnumerable<InvocationInfo> infos,
+        string typeName,
+        IEnumerable<(string, string)> k,
+        IEnumerable<(string, string)> v)
+    {
+        this.infos = infos;
+        this.typeName = typeName;
+        _K = new(k);
+        _VI = new(v);
+        _V = new(
+            new TypeRewriter(typeName, "V", true),
+            _VI);
+    }
 
     private static (string, string) Mangling(string name)
         => (name, name.Length == 1 ? $"{name}v" : $"{name}_v");
 
-    public static ItemsRewriter CreateForItems(
-        IDictionary<string, CallSiteBehaviors> behaviors,
+    public static KeyValueRewriter CreateForItems(
+        IEnumerable<InvocationInfo> infos,
         string generic,
         IEnumerable<string> names)
-        => new(behaviors, generic, [], names.Select(Mangling));
+        => new(infos, generic, [], names.Select(Mangling));
 
-    public static ItemsRewriter CreateForSpans(
-        IDictionary<string, CallSiteBehaviors> behaviors,
+    public static KeyValueRewriter CreateForSpans(
+        IEnumerable<InvocationInfo> infos,
         string generic,
         IEnumerable<string> names)
-        => new(behaviors, generic, [(names.First(), "keys")], 
-            [("keys", "items"), ..names.Skip(1).Select(Mangling)]);
+        => new(infos, generic, [(names.First(), "keys")],
+            [(names.First(), "items"), ..names.Skip(1).Select(Mangling)]);
 
     public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
     {
-        node = _K.Visit(node) as MethodDeclarationSyntax ?? throw new InvalidOperationException();
         foreach (var p in node.ParameterList.Parameters)
         {
-            if (!_V.Map.ContainsKey(p.Identifier.Text) && p.Type.TestParamType(typeName))
+            if (!_VI.Map.ContainsKey(p.Identifier.Text) && p.Type?.TestDataType(typeName) == true)
                 _RO.Add(p.Identifier.Text); // record the parameter name to avoid repeating it in the body
         }
         node = base.VisitMethodDeclaration(node) as MethodDeclarationSyntax ?? throw new InvalidOperationException();
@@ -53,17 +68,18 @@ internal class ItemsRewriter(
         {
             node = node.WithTypeParameterList(F.TypeParameterList([F.TypeParameter("V")]));
         }
-        return node
+        node = node
             .WithParameterList(node.ParameterList.WithParameters(F.SeparatedList(
                 node.ParameterList.Parameters.SelectMany(p => p switch
                 {
-                    _ when _V.Map.ContainsKey(p.Identifier.Text) =>
+                    _ when _VI.Map.ContainsKey(p.Identifier.Text) =>
                     [
                         p,
                         _V.Visit(p) as ParameterSyntax ?? throw new InvalidOperationException()
                     ],
                     _ => new[] { p },
                 }))));
+        return _S.Visit(_K.Visit(node));
     }
 
     public override SyntaxNode? VisitGenericName(GenericNameSyntax node)
@@ -97,19 +113,19 @@ internal class ItemsRewriter(
 
     private bool ShouldRepeat(ExpressionSyntax node)
     {
-        if (!_V.Map.Keys.Any(node.HasIdentifierName) || _RO.Any(node.HasIdentifierName))
+        if (!_VI.Map.Keys.Any(node.HasSimpleName) || _RO.Any(node.HasSimpleName))
             return false; // does not contain should-shadow variables, or contains reference-only variables (e.g. pivot)
-        else if (node is InvocationExpressionSyntax ie && TryGetBehavior(ie.Expression, out var b) && b == CallSiteBehaviors.RepeatCall)
+        else if (node is InvocationExpressionSyntax inv && infos.ShouldRepeatCall(inv))
             return true;
         else if (node is ConditionalAccessExpressionSyntax { WhenNotNull: ExpressionSyntax wnn })
             return ShouldRepeat(wnn);
-        else if (node is AssignmentExpressionSyntax ae)
+        else if (node is AssignmentExpressionSyntax asg)
         {
-            if (_V.Map.Values.Any(ae.HasIdentifierName))
+            if (_VI.Map.Values.Any(asg.HasSimpleName))
                 return false; // contains already-shadowed variables (?)
-            else if (_V.Map.Keys.Any(ae.Left.HasIdentifierName) && _V.Map.Keys.Any(ae.Right.HasIdentifierName))
+            else if (_VI.Map.Keys.Any(asg.Left.HasSimpleName) && _VI.Map.Keys.Any(asg.Right.HasSimpleName))
                 return true; // contains should-shadow variables on both sides
-            else if (ae.Left is IdentifierNameSyntax { Identifier.Text: var left } && _V.Map.ContainsKey(left))
+            else if (asg.Left is IdentifierNameSyntax { Identifier.Text: var left } && _VI.Map.ContainsKey(left))
                 return true; // assigning to should-shadow variables
         }
         return false;
@@ -129,14 +145,14 @@ internal class ItemsRewriter(
 
     private IEnumerable<StatementSyntax> TransformExpressionStatement(ExpressionStatementSyntax node)
     {
-        node = base.VisitExpressionStatement(node) as ExpressionStatementSyntax ?? throw new InvalidOperationException();
         if (ShouldRepeat(node.Expression))
         {
+            node = base.VisitExpressionStatement(node) as ExpressionStatementSyntax ?? throw new InvalidOperationException();
             yield return node.WithTrailingTrivia(F.ElasticCarriageReturnLineFeed);
             yield return _V.Visit(node.WithoutLeadingTrivia()) as ExpressionStatementSyntax ?? throw new InvalidOperationException();
         }
         else
-            yield return node;
+            yield return base.VisitExpressionStatement(node) as ExpressionStatementSyntax ?? throw new InvalidOperationException();
     }
 
     public override SyntaxNode? VisitForStatement(ForStatementSyntax node)
@@ -159,15 +175,9 @@ internal class ItemsRewriter(
         {
             var name = node.Declaration.Variables.Single().Identifier.Text;
             var name_v = name.Length == 1 ? $"{name}v" : $"{name}_v";
-            _V.Map[name] = name_v;
+            _VI.Map[name] = name_v;
             yield return node.WithTrailingTrivia(F.ElasticCarriageReturnLineFeed);
-            if (node.Declaration.Variables.Count == 1 && node.Declaration.Variables.Single().Initializer is { Value: StackAllocArrayCreationExpressionSyntax { Type: ArrayTypeSyntax { RankSpecifiers: [{ Sizes: [var size] }] } } })
-            {
-                yield return F.ParseStatement($"using var owner_v = global::System.Buffers.MemoryPool<V>.Shared.Rent({size.ToFullString()});");
-                yield return F.ParseStatement($"Span<V> {name_v} = owner_v.Memory.Span.Sub(0, {size.ToFullString()});");
-            }
-            else
-                yield return _V.Visit(node.WithoutLeadingTrivia()) as LocalDeclarationStatementSyntax ?? throw new InvalidOperationException();
+            yield return _V.Visit(node.WithoutLeadingTrivia()) as LocalDeclarationStatementSyntax ?? throw new InvalidOperationException();
         }
         else
             yield return node;
@@ -180,7 +190,7 @@ internal class ItemsRewriter(
         {
             var name = node.Declaration!.Variables.Single().Identifier.Text;
             var name_v = name.Length == 1 ? $"{name}v" : $"{name}_v";
-            _V.Map[name] = name_v;
+            _VI.Map[name] = name_v;
             yield return node.WithTrailingTrivia(F.ElasticCarriageReturnLineFeed);
             yield return _V.Visit(node.WithoutLeadingTrivia()) as UsingStatementSyntax ?? throw new InvalidOperationException();
         }
@@ -190,108 +200,41 @@ internal class ItemsRewriter(
 
     public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
     {
-        node = base.VisitInvocationExpression(node) as InvocationExpressionSyntax ?? throw new InvalidOperationException();
+        var info = infos.Match(node);
 
-        if (TryGetBehavior(node.Expression, out var b))
+        if (info is not null)
         {
-            node = node
-                .WithArgumentList(F.ArgumentList(F.SeparatedList(
-                    node.ArgumentList.Arguments
-                        .SelectMany((arg, a) =>
-                        {
-                            if (b.HasFlag((CallSiteBehaviors)((uint)CallSiteBehaviors.RepeatArgument0 << a)))
+            if (info.Expansion.IsT2)
+            {
+                var mirror = info.Expansion.AsT2;
+                node = node
+                    .WithArgumentList(F.ArgumentList(F.SeparatedList(
+                        node.ArgumentList.Arguments
+                            .SelectMany((arg, a) =>
                             {
-                                if (arg.Expression is DeclarationExpressionSyntax de && de.Type.TestType(typeName)
-                                    && de.Designation is SingleVariableDesignationSyntax svd)
+                                if (mirror.Test(a))
                                 {
-                                    var name = svd.Identifier.Text;
-                                    var name_v = name.Length == 1 ? $"{name}v" : $"{name}_v";
-                                    _V.Map[name] = name_v;
+                                    if (arg.Expression is DeclarationExpressionSyntax de && de.Type.TestType(typeName)
+                                        && de.Designation is SingleVariableDesignationSyntax svd)
+                                    {
+                                        var name = svd.Identifier.Text;
+                                        var name_v = name.Length == 1 ? $"{name}v" : $"{name}_v";
+                                        _VI.Map[name] = name_v;
+                                    }
+                                    return [arg, _V.Visit(arg) as ArgumentSyntax ?? throw new InvalidOperationException()];
                                 }
-                                return [ arg, _V.Visit(arg) as ArgumentSyntax ?? throw new InvalidOperationException() ];
-                            }
-                            else
-                                return new[] { arg };
-                        }))))
-                .WithTriviaFrom(node);
+                                else
+                                    return new[] { arg };
+                            }))))
+                    .WithTriviaFrom(node);
+            }
+
+            if (node.Expression is GenericNameSyntax gen && info.ExpandTypeArgument)
+            {
+                node = node.WithExpression(gen.WithTypeArgumentList(F.TypeArgumentList([.. gen.TypeArgumentList.Arguments, F.IdentifierName("V")])));
+            }
         }
 
-        return node;
-    }
-
-    private bool TryGetBehavior(ExpressionSyntax node, out CallSiteBehaviors behavior, string suffix = "")
-    {
-        if (node is IdentifierNameSyntax id)
-        {
-            return behaviors.TryGetValue($"{id.Identifier.Text}{suffix}", out behavior);
-        }
-        else if (node is MemberBindingExpressionSyntax mb)
-        {
-            return behaviors.TryGetValue($"{mb.Name.Identifier.Text}{suffix}", out behavior);
-        }
-        else if (node is MemberAccessExpressionSyntax ma)
-        {
-            var name = ma.Name.Identifier.Text;
-            return behaviors.TryGetValue(name, out behavior)
-                || TryGetBehavior(ma.Expression, out behavior, $".{name}{suffix}");
-        }
-        behavior = default;
-        return false;
-    }
-}
-
-internal sealed class TypeParameterRewriter(string old, string name) : CSharpSyntaxRewriter
-{
-    public override SyntaxNode? VisitPredefinedType(PredefinedTypeSyntax node)
-        => node.Keyword.Text == old
-            ? F.IdentifierName(F.Identifier(name)).WithTriviaFrom(node)
-            : base.VisitPredefinedType(node);
-
-    public override SyntaxNode? VisitTypeParameter(TypeParameterSyntax node)
-        => base.VisitTypeParameter(node.Identifier.Text == old
-            ? node.WithIdentifier(F.Identifier(name)).WithTriviaFrom(node)
-            : node);
-
-    public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
-        => base.VisitIdentifierName(node.Identifier.Text == old
-            ? node.WithIdentifier(F.Identifier(name)).WithTriviaFrom(node)
-            : node);
-}
-
-internal sealed class IdentifierRewriter(CSharpSyntaxRewriter? pre, params IEnumerable<(string, string)> map) : CSharpSyntaxRewriter
-{
-    internal readonly Dictionary<string, string> Map = map.ToDictionary(t => t.Item1, t => t.Item2);
-
-    public override SyntaxNode? Visit(SyntaxNode? node)
-    {
-        return base.Visit(pre is not null ? pre.Visit(node) : node);
-    }
-
-    public override SyntaxNode? VisitParameter(ParameterSyntax node)
-    {
-        return base.VisitParameter(Map.TryGetValue(node.Identifier.Text, out var n)
-            ? node.WithIdentifier(F.Identifier(n).WithTriviaFrom(node.Identifier))
-            : node);
-    }
-
-    public override SyntaxNode? VisitVariableDeclarator(VariableDeclaratorSyntax node)
-    {
-        return base.VisitVariableDeclarator(Map.TryGetValue(node.Identifier.Text, out var n)
-            ? node.WithIdentifier(F.Identifier(n).WithTriviaFrom(node.Identifier))
-            : node);
-    }
-
-    public override SyntaxNode? VisitSingleVariableDesignation(SingleVariableDesignationSyntax node)
-    {
-        return base.VisitSingleVariableDesignation(Map.TryGetValue(node.Identifier.Text, out var n)
-            ? node.WithIdentifier(F.Identifier(n).WithTriviaFrom(node.Identifier))
-            : node);
-    }
-
-    public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
-    {
-        return base.VisitIdentifierName(Map.TryGetValue(node.Identifier.Text, out var n)
-            ? node.WithIdentifier(F.Identifier(n)).WithTriviaFrom(node)
-            : node);
+        return base.VisitInvocationExpression(node) as InvocationExpressionSyntax ?? throw new InvalidOperationException();
     }
 }

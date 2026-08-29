@@ -1,17 +1,15 @@
-﻿using System.Collections.Frozen;
-using System.Collections.Immutable;
-using System.Diagnostics;
-using System.Text;
+﻿using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Text;
-using F = Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
+using OneOf;
+using SortSharp.SourceGenerators.Common;
+using SortSharp.SourceGenerators.Impl;
 
 namespace SortSharp.SourceGenerators;
 
 [Generator]
-internal sealed partial class OverloadGenerator : IIncrementalGenerator
+internal sealed partial class ImplOverloadGenerator : IIncrementalGenerator
 {
     private record struct Capabilities(bool ComparisonOperators);
 
@@ -19,395 +17,247 @@ internal sealed partial class OverloadGenerator : IIncrementalGenerator
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        var templates = context.SyntaxProvider
-            .ForAttributeWithMetadataName(
-                $"{typeof(OverloadTemplateAttribute).Namespace}.{nameof(OverloadTemplateAttribute)}",
-                static (node, _) => node is MemberDeclarationSyntax,
-                static (ctx, ct) => AnalyzeTemplates(ctx, ct));
-
         var capabilities = context.CompilationProvider
             .Select(static (cmpl, _) =>
                 new Capabilities(
                     ComparisonOperators: cmpl.GetTypeByMetadataName(
                         "System.Numerics.IComparisonOperators`3") is not null));
 
-        var behaviors = templates
-            .Select(static (tmpl, _) => (tmpl.Name, tmpl.Behavior))
-            .Where(static pair => pair.Behavior != CallSiteBehaviors.None)
-            .Collect()
-            .Select(static (pairs, _) => BuildBehaviors(pairs))
-            .WithComparer(BehaviorMapComparer.Instance);
-
-        var targets = context.SyntaxProvider
+        var receivers = context.SyntaxProvider
             .ForAttributeWithMetadataName(
-                $"{typeof(SortSpecializationAttribute).Namespace}.{nameof(SortSpecializationAttribute)}",
+                $"{typeof(ReceiverAttribute).Namespace}.{nameof(ReceiverAttribute)}",
                 static (node, _) => node is MemberDeclarationSyntax,
-                static (ctx, ct) => (ResolveType((ITypeSymbol)ctx.TargetSymbol), GetArgument<string>(ctx.Attributes.Single(), 0)))
+                static (node, _) => BroadcastReceiver.Resolve(node))
             .Collect();
 
         context.RegisterSourceOutput(
-            templates
-                .Combine(behaviors.Combine(capabilities.Combine(targets)))
-                .SelectMany(static (tuple, ct) =>
-                {
-                    var template = tuple.Left;
-                    var behaviors = tuple.Right.Left;
-                    var capabilities = tuple.Right.Right.Left;
-                    var targets = tuple.Right.Right.Right;
-                    return template switch
+            receivers.Select((receivers, _) => receivers.Lefts()),
+            static (spc, diags) => diags.Iterate(spc.ReportDiagnostic));
+
+        var outputs = context.SyntaxProvider
+            .ForAttributeWithMetadataName(
+                typeof(ImplTemplateAttribute).FullName,
+                static (node, _) => node is MethodDeclarationSyntax,
+                Template.Resolve)
+            .Combine(capabilities.Combine(receivers.Select((receivers, _) => receivers.Rights())))
+            .SelectMany(static (tuple, ct) =>
+            {
+                var (template, (capabilities, receivers)) = tuple;
+                return template
+                    .MapT1(tmpl => tmpl.Info?.Options switch
                     {
-                        TemplateMethod<BasicOptions> b => GenerateMethods(b, targets, behaviors, ct).ToImmutableArray(),
-                        TemplateMethod<ComparisonOptions> c => GenerateMethods(c, capabilities, behaviors, ct).ToImmutableArray(),
-                        _ => []
-                    };
+                        { ComparerName: not null } or { SortProps: SortProperties.Comparison }
+                            => [ComparisonTemplate.Create(tmpl, capabilities)],
+                        { ItemNames.Length: > 0 } or { Broadcast: not null }
+                            => [UniversalTemplate.Create(tmpl, receivers, ct)],
+                        _ => Enumerable.Empty<Template>(),
+                    })
+                    .Bisequence();
+            })
+            .WithComparer(new Template.Comparer())
+            .SelectMany(static (tmpl, _) => tmpl.MapT1(
+                r => r switch
+                {
+                    ComparisonTemplate c => c.Generate(),
+                    UniversalTemplate u => u.Generate(),
+                    _ => []
                 })
-                .Collect()
-                .Combine(capabilities)
-                .Select(static (tuple, _) =>
-                    RenderFiles(tuple.Left, (decl, meta) => TransformSyntax(decl, meta, tuple.Right))),
-            static (spc, files) =>
+                .Sequence())
+            .Collect()
+            .Combine(capabilities)
+            .Select(static (tuple, _) =>
             {
-                foreach (var file in files)
-                    spc.AddSource(file.FilePath, file.Source);
-            });
-    }
-
-    internal record class TypeDeclCore(
-        string Namespace,
-        string Name,
-        ImmutableArray<string> TypeParameters,
-        TypeDeclCore? Containing = null)
-    {
-        private string Hint => TypeParameters.Length == 0
-            ? Name
-            : $"{Name}_{TypeParameters.Length}";
-        public string HintName => Containing is not null
-            ? $"{Containing.HintName}.{Hint}"
-            : Hint;
-        private SimpleNameSyntax BaseSyntax => TypeParameters.Length == 0
-            ? F.IdentifierName(Name)
-            : F.GenericName(Name).WithTypeArgumentList(
-                F.TypeArgumentList([.. TypeParameters.Select(F.IdentifierName)]));
-        public NameSyntax Syntax => Containing is not null
-            ? F.QualifiedName(Containing.Syntax, BaseSyntax)
-            : BaseSyntax;
-    }
-    internal sealed record class TypeDecl(
-        string Namespace,
-        string Name,
-        ImmutableArray<string> TypeParameters,
-        TypeDeclCore? Containing = null,
-        TypeDeclCore? Base = null,
-        TypeKind Kind = TypeKind.Class,
-        SyntaxKind Modifier = default) : TypeDeclCore(Namespace, Name, TypeParameters, Containing);
-
-    internal static TypeDecl ResolveType(ITypeSymbol symbol)
-        => new(symbol.ContainingNamespace.ToDisplayString(),
-            symbol.Name,
-            symbol is INamedTypeSymbol named
-                ? [.. named.TypeParameters.Select(p => p.Name)]
-                : [],
-            symbol.ContainingType is not null
-                ? ResolveType(symbol.ContainingType)
-                : null,
-            symbol.BaseType is not null && symbol.BaseType.SpecialType is not (SpecialType.System_Object or SpecialType.System_ValueType)
-                ? ResolveType(symbol.BaseType)
-                : null,
-            symbol.IsValueType ? TypeKind.Struct : TypeKind.Class,
-            symbol switch
-            {
-                { IsAbstract: true, IsSealed: true } => SyntaxKind.StaticKeyword,
-                { IsAbstract: true } => SyntaxKind.AbstractKeyword,
-                { IsSealed: true } => SyntaxKind.SealedKeyword,
-                _ => default,
+                var (tmpl, capabilities) = tuple;
+                var (Lefts, Rights) = tmpl.Seperate();
+                return (Lefts, GeneratedMethod.Render(Rights,
+                    (decl, meta) => TransformType(decl, meta, capabilities)));
             });
 
-    private static T? GetArgument<T>(AttributeData? attr, int index)
-    {
-        if (attr == null) return default;
-        if (index < attr.ConstructorArguments.Length && attr.ConstructorArguments[index].Value is object obj)
-            try { return (T)obj; } catch { }
-        return default;
-    }
-
-    private static ImmutableArray<T> GetArgumentArray<T>(AttributeData? attr, int index)
-    {
-        if (attr == null) return [];
-        if (index < attr.ConstructorArguments.Length)
-            try { return attr.ConstructorArguments[index].Values.Select(a => a.Value).Cast<T>().ToImmutableArray(); } catch { }
-        return [];
-    }
-
-    private static T? GetNamedArgument<T>(AttributeData? attr, string name)
-    {
-        if (attr == null) return default;
-        if (attr.NamedArguments.FirstOrDefault(a => a.Key == name).Value.Value is object obj)
-            try { return (T)obj; } catch { }
-        return default;
-    }
-
-    internal abstract record TemplateMethod(
-        MethodDeclarationSyntax Declaration,
-        ImmutableArray<string> Usings,
-        string OriginFolder,
-        string OriginNamespace,
-        TypeDecl OriginType,
-        string Name,
-        Accessibility Accessibility,
-        CallSiteBehaviors Behavior);
-
-    internal sealed record TemplateMethod<T>(
-        MethodDeclarationSyntax Declaration,
-        ImmutableArray<string> Usings,
-        string OriginFolder,
-        string OriginNamespace,
-        TypeDecl OriginType,
-        string Name,
-        Accessibility Accessibility,
-        CallSiteBehaviors Behavior,
-        T? Options)
-        : TemplateMethod(Declaration, Usings, OriginFolder, OriginNamespace, OriginType, Name, Accessibility, Behavior)
-        where T : notnull;
-
-    private static TemplateMethod AnalyzeTemplates(GeneratorAttributeSyntaxContext ctx, CancellationToken ct)
-    {
-        var decl = (MethodDeclarationSyntax)ctx.TargetNode;
-        var symbol = ctx.SemanticModel.GetDeclaredSymbol(decl, ct) ?? throw new InvalidOperationException();
-        var attr = ctx.Attributes.Single();
-
-        var usings = decl.SyntaxTree.GetCompilationUnitRoot(ct).Usings.Select(u => u.WithoutTrivia().ToFullString());
-        var ns = symbol.ContainingNamespace.ToDisplayString();
-        var parent = ResolveType(symbol.ContainingType);
-
-        IEnumerable<string> segments = decl.SyntaxTree.FilePath.Split('\\', '/');
-        segments = segments.Reverse().Skip(1).TakeWhile(s => !s.StartsWith("SortSharp")).Reverse();
-        var relative = string.Join("/", segments).Trim().Trim('/');
-
-        var itemType = GetArgument<string>(attr, 0);
-        var comparer = GetArgument<string>(attr, 1);
-        var itemIds = GetArgumentArray<string>(attr, 2);
-        var isSpan = symbol.Parameters
-            .Where(p => itemIds.Contains(p.Name))
-            .Any(p => p.Type.Name == nameof(Span<>) || p.Type.Name == nameof(ReadOnlySpan<>));
-
-        var valid = attr.ConstructorArguments.Reverse().SkipWhile(a => a is { IsNull: true } or { Kind: TypedConstantKind.Array, Values: [] }).Reverse().Count();
-        var behavior = attr.ConstructorArguments[..valid] switch
-        {
-            { Length: 1 } when symbol.Parameters.Any(p => p is
-                { Type: ITypeParameterSymbol, RefKind: RefKind.Ref } or // ref T
-                { Type: INamedTypeSymbol { Name: nameof(Span<>), TypeArguments: [ITypeParameterSymbol] } }) // Span<T>
-                => CallSiteBehaviors.RepeatCall,
-            { Length: 3 } => itemIds.Select(a => symbol.Parameters.IndexOf(symbol.Parameters.First(p => p.Name == a)))
-                .Select(i => (uint)CallSiteBehaviors.RepeatArgument0 << i)
-                .Cast<CallSiteBehaviors>()
-                .Aggregate(CallSiteBehaviors.None, (a, b) => a | b),
-            _ => CallSiteBehaviors.None,
-        };
-
-        var sortClass = symbol.ContainingType;
-        while (sortClass.ContainingType is not null)
-            sortClass = sortClass.ContainingType;
-        var sortAttr = sortClass.GetAttributes().FirstOrDefault(a => a.AttributeClass?.Name == nameof(SortAttribute));
-
-        var disable = GetNamedArgument<DefaultOverloads>(sortAttr, nameof(SortAttribute.Disable))
-            | GetNamedArgument<DefaultOverloads>(attr, nameof(OverloadTemplateAttribute.Disable));
-        var enable = GetNamedArgument<OptionalOverloads>(attr, nameof(OverloadTemplateAttribute.Enable));
-        var properties = GetNamedArgument<SortProperties>(sortAttr, nameof(SortAttribute.Properties));
-
-        if (sortAttr is not null && properties.HasFlag(SortProperties.NonComparison))
-            return new TemplateMethod<BasicOptions>(decl, [.. usings], relative, ns, parent, symbol.Name, symbol.DeclaredAccessibility, behavior,
-                new(itemType!, itemIds, isSpan, disable, enable));
-        else if(string.IsNullOrEmpty(comparer) && itemIds.Length == 0)
-            return new TemplateMethod<object>(decl, [.. usings], relative, ns, parent, symbol.Name, symbol.DeclaredAccessibility, behavior, null);
-        else
-            return new TemplateMethod<ComparisonOptions>(decl, [.. usings], relative, ns, parent, symbol.Name, symbol.DeclaredAccessibility, behavior,
-                new(itemType!, comparer!, itemIds, isSpan, properties, disable, enable));
-    }
-
-    private static IDictionary<string, CallSiteBehaviors> BuildBehaviors(ImmutableArray<(string Name, CallSiteBehaviors Behavior)> pairs)
-    {
-        // presets
-        SortedDictionary<string, CallSiteBehaviors> dict = new()
-        {
-            ["Less"] = CallSiteBehaviors.None,
-            ["Compare"] = CallSiteBehaviors.None,
-            ["CopyTo"] = CallSiteBehaviors.RepeatCall,
-            ["CopyToFill"] = CallSiteBehaviors.RepeatCall,
-            ["Dispose"] = CallSiteBehaviors.RepeatCall,
-            ["Reverse"] = CallSiteBehaviors.RepeatCall,
-        };
-        string[] suffices = ["LE"];
-
-        foreach (var (Name, Behavior) in pairs)
-        {
-            if (dict.TryGetValue(Name, out var b))
+        context.RegisterSourceOutput(
+            outputs,
+            static (spc, outputs) =>
             {
-                if (Behavior != b)
-                    throw new InvalidOperationException($"Conflicting behaviors for method {Name}: {b} vs {Behavior}");
-            }
-            else
-            {
-                dict.Add(Name, Behavior);
-                foreach (var suffix in suffices)
-                    dict.Add($"{Name}{suffix}", Behavior);
-            }
+                var (diags, files) = outputs;
+                diags.Iterate(spc.ReportDiagnostic);
+                files.Iterate(file => spc.AddSource(file.FilePath, file.Source));
+            });
+    }
+    
+    internal record Template(
+        MethodDeclarationSyntax Declaration,
+        ImmutableArray<InvocationInfo> Invocations,
+        TemplateInfo Info)
+    {
+        internal static OneOf<IEnumerable<Diagnostic>, Template> Resolve(
+            GeneratorAttributeSyntaxContext ctx, CancellationToken ct)
+        {
+            var decl = (MethodDeclarationSyntax)ctx.TargetNode;
+            var symbol = (IMethodSymbol)ctx.TargetSymbol;
+            var info = TemplateInfo.Resolve(decl, symbol, ct);
+            // skip expensive analysis for tagging-only templates
+            return info.Options is null 
+                ? OneOf<IEnumerable<Diagnostic>, Template>.FromT0([])
+                : InvocationInfo.Resolve(ctx, decl, ct)
+                    .ValidateAll()
+                    .MapT1(r => new Template(decl, [..r], info));
         }
 
-        return dict.ToFrozenDictionary(); // order immutability guaranteed by SortedDictionary
-    }
-
-    internal sealed record GeneratedMethod(
-        MethodDeclarationSyntax Declaration,
-        ImmutableArray<string> Usings,
-        string FilePath,
-        string Namespace,
-        TypeDecl TypeName)
-    {
-        internal static GeneratedMethod Create<T>(
-            TemplateMethod<T> template,
-            MemberDeclarationSyntax declaration,
-            TypeDecl? child = null)
-            where T : notnull
+        internal GeneratedMethod Variant(
+            MethodDeclarationSyntax decl,
+            TypeDef? child = null)
         {
-            var type = child ?? template.OriginType;
-            IEnumerable<string> segments = [template.OriginFolder, $"{type.HintName}.g"];
-            return new GeneratedMethod(
-                (MethodDeclarationSyntax)trimmer.Visit(declaration),
-                template.Usings,
+            var type = child ?? Info.ContainingType;
+            IEnumerable<string> segments = [Info.RelativeSourcePath, $"{type.HintName}.g"];
+            return new(
+                (MethodDeclarationSyntax)trimmer.Visit(decl),
+                Info.Usings,
                 Path.Combine([.. segments.Where(s => !string.IsNullOrEmpty(s))]),
-                template.OriginNamespace,
+                Info.Namespace,
                 type);
         }
 
-        internal static GeneratedMethod CreateWrapper<T>(
-            TemplateMethod<T> template,
-            MemberDeclarationSyntax declaration,
-            TypeDecl type)
-            where T : notnull
+        internal GeneratedMethod Wrapper(
+            MemberDeclarationSyntax decl,
+            TypeDef type)
         {
             return new GeneratedMethod(
-                (MethodDeclarationSyntax)trimmer.Visit(declaration),
-                template.Usings,
+                (MethodDeclarationSyntax)trimmer.Visit(decl),
+                Info.Usings,
                 $"{type.HintName}.g",
                 type.Namespace,
                 type);
         }
+
+        public virtual bool Equals(Template? other)
+            => other is not null
+                && Declaration.IsEquivalentTo(other.Declaration)
+                && Invocations.SequenceEqual(other.Invocations)
+                && Info.Equals(other.Info);
+        public override int GetHashCode()
+            => HashCode.Combine(
+                HashCode.CombineAll(Invocations),
+                Info);
+
+        internal sealed class Comparer : IEqualityComparer<OneOf<Diagnostic, Template>>
+        {
+            public bool Equals(OneOf<Diagnostic, Template> x, OneOf<Diagnostic, Template> y)
+                => x.Match(_ => false, t1 => y.Match(_ => false, t2 => t1?.Equals(t2) ?? false));
+            public int GetHashCode(OneOf<Diagnostic, Template> obj)
+                => obj.Match(_ => 0, t => t?.GetHashCode() ?? 0);
+        }
     }
 
-    internal sealed record GeneratedFile(
-        string FilePath,
-        SourceText Source);
-
-    internal static IEnumerable<GeneratedFile> RenderFiles(ImmutableArray<GeneratedMethod> variants, Func<TypeDeclarationSyntax, TypeDecl, TypeDeclarationSyntax> callback)
+    internal sealed record TemplateInfo(
+        ImmutableArray<string> Usings,
+        string RelativeSourcePath,
+        string Namespace,
+        TypeDef ContainingType,
+        string Name,
+        Accessibility Accessibility,
+        TemplateOptions? Options)
     {
-        return variants
-            .GroupBy(v => v.FilePath)
-            .Select(f =>
-            {
-                try
-                {
-                    var usings = string.Join(
-                        "\r\n",
-                        f.SelectMany(static v => v.Usings)
-                            .Select(static s => s.Trim())
-                            .Distinct(StringComparer.Ordinal)
-                            .OrderBy(static s => s, StringComparer.Ordinal));
-                    var root = F.ParseCompilationUnit($"""
-                        // <auto-generated/>
-                        #nullable enable
-                        {usings}
-                        """);
+        internal static TemplateInfo Resolve(MethodDeclarationSyntax decl, IMethodSymbol symbol, CancellationToken ct)
+        {
+            var usings = decl.SyntaxTree.GetCompilationUnitRoot(ct).Usings.Select(static u => u.WithoutTrivia().ToFullString());
+            var relative = decl.SyntaxTree.FilePath
+                .Split('\\', '/').AsEnumerable()
+                .Reverse().Skip(1).TakeWhile(static s => !s.StartsWith(nameof(SortSharp)))
+                .Reverse().Join("/").Trim().Trim('\\', '/');
+            var ns = symbol.ContainingNamespace.ToDisplayString();
+            var type = TypeDef.Resolve(symbol.ContainingType);
+            var name = symbol.Name;
+            var access = symbol.DeclaredAccessibility;
+            return new([..usings], relative, ns, type, name, access, TemplateOptions.Resolve(symbol));
+        }
 
-                    var ns = f.Select(static v => v.Namespace).Distinct().Single();
-                    var meta = f.First().TypeName;
-
-                    TypeDeclarationSyntax decl = meta.Kind switch
-                    {
-                        TypeKind.Interface => F.InterfaceDeclaration(meta.Name),
-                        TypeKind.Struct => F.StructDeclaration(meta.Name),
-                        _ => F.ClassDeclaration(meta.Name),
-                    };
-                    decl = decl.WithModifiers([F.Token(SyntaxKind.PartialKeyword)])
-                        .WithMembers([.. f.Select(static v => v.Declaration)]);
-                    if (meta.TypeParameters.Any())
-                    {
-                        decl = decl
-                            .WithTypeParameterList(F.TypeParameterList([.. meta.TypeParameters.Select(F.TypeParameter)]))
-                            .WithMembers([.. decl.Members]);
-                        decl = callback(decl, meta);
-                    }
-                    if (meta.Base is TypeDeclCore b)
-                    {
-                        decl = decl.WithBaseList(F.BaseList([F.SimpleBaseType(b.Syntax)]));
-                    }
-                    // add modifiers for inner-most nested classes
-                    if (meta.Containing is not null)
-                    {
-                        var modifier = f.Select(n => n.TypeName.Modifier).FirstOrDefault(m => m != default);
-                        decl = meta.Modifier != default
-                            ? decl.WithModifiers([F.Token(SyntaxKind.InternalKeyword), F.Token(modifier), F.Token(SyntaxKind.PartialKeyword)])
-                            : decl.WithModifiers([F.Token(SyntaxKind.InternalKeyword), F.Token(SyntaxKind.PartialKeyword)]);
-                    }
-
-                    TypeDeclCore? c = meta.Containing;
-                    while (c is not null)
-                    {
-                        decl = F.ClassDeclaration(c.Name)
-                            .WithModifiers([F.Token(SyntaxKind.PartialKeyword)])
-                            .WithMembers([decl]);
-                        c = c.Containing;
-                    }
-
-                    root = root.WithMembers([F.FileScopedNamespaceDeclaration(F.ParseName(ns))
-                        .WithMembers([decl])]);
-
-                    return new GeneratedFile(
-                        f.Key,
-                        root.NormalizeWhitespace().GetText(Encoding.UTF8));
-                }
-                catch
-                {
-                    // TODO: provide a diagnostic for this error
-                    return null!;
-                }
-            })
-            .Where(f => f is not null);
+        public bool Equals(TemplateInfo? other)
+            => other is not null
+                && Usings.SequenceEqual(other.Usings)
+                && RelativeSourcePath == other.RelativeSourcePath
+                && Namespace == other.Namespace
+                && ContainingType.Equals(other.ContainingType)
+                && Name == other.Name
+                && Accessibility == other.Accessibility
+                && (Options?.Equals(other.Options) ?? other.Options is null);
+        public override int GetHashCode()
+            => HashCode.Combine(
+                HashCode.CombineAll(Usings),
+                RelativeSourcePath,
+                Namespace,
+                ContainingType,
+                Name,
+                Accessibility,
+                Options);
     }
 
-    private sealed class BehaviorMapComparer
-        : IEqualityComparer<IDictionary<string, CallSiteBehaviors>>
+    internal sealed record TemplateOptions(
+        string ItemType,
+        ImmutableArray<string> ItemNames,
+        bool AreItemsSpan,
+        OverloadOption KeyValue,
+        bool KeySelector,
+        string? Broadcast = null,
+        string? ComparerName = null,
+        ComparerOverloads Disable = default,
+        //OptionalOverloads Enable = default,
+        SortProperties? SortProps = null)
     {
-        public static readonly BehaviorMapComparer Instance = new();
-
-        public bool Equals(IDictionary<string, CallSiteBehaviors> x, IDictionary<string, CallSiteBehaviors> y)
+        internal static TemplateOptions? Resolve(IMethodSymbol method)
         {
-            if (ReferenceEquals(x, y)) return true;
-            else if (x is null || y is null) return x is null && y is null;
-            else if (x.Count != y.Count) return false;
+            var attr = method.GetAttributeOf<ImplTemplateAttribute>();
+            var itemType = attr.GetArgument<string>(0);
+            var itemNames = attr.GetArgumentArray<string>(1);
 
-            using var X = x.GetEnumerator();
-            using var Y = y.GetEnumerator();
+            var isSpan = method.Parameters
+                .Where(p => itemNames.Contains(p.Name))
+                .Any(p => p.Type.Name == nameof(Span<>) || p.Type.Name == nameof(ReadOnlySpan<>));
 
-            while (X.MoveNext() && Y.MoveNext())
+            var keyValue = attr.GetNamedArgument<OverloadOption>(nameof(ImplTemplateAttribute.KeyValue),
+                defaultValue: OverloadOption.Enable);
+
+            var sort = method.ContainingType.TopType;
+            var sortAttr = sort.GetAttributeOf<SortAttribute>();
+            var sortProps = sortAttr?.GetNamedArgument<SortProperties>(nameof(SortAttribute.Properties));
+
+            var keySelector = attr.GetNamedArgument<bool>(nameof(ImplTemplateAttribute.KeySelector),
+                defaultValue: sortAttr is not null && sortProps?.HasFlag(SortProperties.Comparison) == false);
+            var broadcast = attr.GetNamedArgument<string>(nameof(ImplTemplateAttribute.Broadcast));
+
+            var comparer = attr.GetNamedArgument<string>(nameof(ImplTemplateAttribute.Comparer));
+            var disable = sortAttr.GetNamedArgument<ComparerOverloads>(nameof(SortAttribute.Disable))
+                | attr.GetNamedArgument<ComparerOverloads>(nameof(ImplTemplateAttribute.Disable));
+            //var enable = attr.GetNamedArgument<OptionalOverloads>(nameof(ImplTemplateAttribute.Enable));
+
+            if (!string.IsNullOrEmpty(comparer) || itemNames.Any() || !string.IsNullOrEmpty(broadcast))
             {
-                if (X.Current.Key != Y.Current.Key || X.Current.Value != Y.Current.Value)
-                    return false;
+                if (string.IsNullOrEmpty(itemType))
+                    throw new InvalidOperationException($"The '{nameof(ImplTemplateAttribute)}' attribute must specify a non-empty item type.");
+                return new(itemType!, itemNames, isSpan, keyValue, keySelector, broadcast, comparer, disable, /* enable, */ sortProps);
             }
-
-            return true;
+            else
+                return null;
         }
 
-        public int GetHashCode(IDictionary<string, CallSiteBehaviors> obj)
-        {
-            int hash = 0;
-
-            foreach (var kv in obj)
-            {
-                hash ^= kv.Key.GetHashCode();
-                hash ^= kv.Value.GetHashCode();
-            }
-
-            return hash;
-        }
+        public bool Equals(TemplateOptions? other)
+            => other is not null
+                && ItemType == other.ItemType
+                && ItemNames.SequenceEqual(other.ItemNames)
+                && AreItemsSpan == other.AreItemsSpan
+                && KeyValue == other.KeyValue
+                && KeySelector == other.KeySelector
+                && Broadcast == other.Broadcast
+                && ComparerName == other.ComparerName
+                && Disable == other.Disable
+                //&& Enable == other.Enable
+                && SortProps == other.SortProps;
+        public override int GetHashCode()
+            => HashCode.Combine(
+                ItemType,
+                HashCode.CombineAll(ItemNames),
+                AreItemsSpan,
+                KeyValue,
+                KeySelector,
+                Broadcast,
+                HashCode.Combine(ComparerName, Disable, /* Enable, */ SortProps));
     }
 }

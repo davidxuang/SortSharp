@@ -2,7 +2,7 @@
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace SortSharp.SourceGenerators.Comparison;
+namespace SortSharp.SourceGenerators.Impl.Comparison;
 
 internal sealed class ComparableRewriter(string name) : CSharpSyntaxRewriter
 {

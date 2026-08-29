@@ -5,7 +5,12 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using SortSharp.Compat;
+using SortSharp.Foundation;
 using SortSharp.SourceGenerators;
+
+#if NET7_0_OR_GREATER
+using System.Runtime.Intrinsics;
+#endif
 
 namespace SortSharp;
 
@@ -18,14 +23,20 @@ public static partial class Extensions
     /// Rotates the elements of the specified <see cref="Span{T}"/> to the left by the specified number of positions.
     /// </summary>
     /// <typeparam name="T">The type of elements.</typeparam>
-    /// <param name="span">The span to rotate.</param>
-    /// <param name="left">The number of positions to rotate left.</param>
+    /// <param name="span">The elements to rotate.</param>
+    /// <param name="left">The index of the beginning of the part to be moved to the left.</param>
     /// <param name="cache">Optional cache span to be used. It does not need to be cleared beforehand, and will not be cleared afterwards.</param>
-    /// <remarks><see href="https://github.com/scandum/rotate"/></remarks>
+    /// <seealso href="https://github.com/scandum/rotate"/>
+    /// <exception cref="ArgumentException">
+    /// The specified <paramref name="cache"/> overlaps with the input <paramref name="span"/>.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// The specified <paramref name="left"/> is out of the range of the <paramref name="span"/>.
+    /// </exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void Rotate<T>(this Span<T> span, int left, Span<T> cache = default)
     {
-        ArgumentException.ThrowIf(span.Overlaps(cache), "The cache span should not overlap with the input span.", nameof(cache));
+        ArgumentException.ThrowIf(span.Overlaps(cache), ArgumentException.MsgSpanOverlaps, nameof(cache));
         ArgumentOutOfRangeException.ThrowIfLessThan(left, 0, nameof(left));
         ArgumentOutOfRangeException.ThrowIfGreaterThan(left, span.Length, nameof(left));
 
@@ -37,11 +48,10 @@ internal static partial class SpanOperations
 {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool Ensure([DoesNotReturnIf(false)] bool condition)
-        => condition || ThrowInvariantViolated();
-    [DoesNotReturn]
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static bool ThrowInvariantViolated()
-        => throw new InvalidOperationException("The ordering invariant was violated. This may be caused by an inconsistent comparer or concurrent modification.");
+    {
+        if (!condition) ThrowHelper.ThrowInvalidOperation("The ordering invariant was violated. This may be caused by an inconsistent comparer or concurrent modification.");
+        return true;
+    }
 
     extension(Unsafe)
     {
@@ -145,7 +155,7 @@ internal static partial class SpanOperations
 #endif
     }
 
-    [OverloadTemplate(nameof(T), null)]
+    [ImplTemplate(nameof(T))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Swap<T>(ref T a, ref T b)
     {
@@ -154,7 +164,7 @@ internal static partial class SpanOperations
         b = t;
     }
 
-    [OverloadTemplate(nameof(T), null)]
+    [ImplTemplate(nameof(T))]
     internal static void SwapBlock<T>(ref T a, ref T b, int length)
     {
         ref T last = ref Unsafe.Add(ref a, length);
@@ -166,7 +176,7 @@ internal static partial class SpanOperations
         }
     }
 
-    [OverloadTemplate(nameof(T), null)]
+    [ImplTemplate(nameof(T))]
     internal static void SwapBlockBackward<T>(ref T a, ref T b, int length)
     {
         ref T last = ref Unsafe.Subtract(ref a, length);
@@ -178,7 +188,23 @@ internal static partial class SpanOperations
         }
     }
 
-    [OverloadTemplate(nameof(T), null, nameof(_), Disable = DefaultOverloads.KeyValue)]
+    private const nint MaxStackAllocSize = 1 << 16;
+
+    [TypeArgumentExpansion]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool CanStackAlloc<T>(int length)
+        => length == 0 || Unsafe.SizeOf<T>() <= MaxStackAllocSize / length;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool CanStackAlloc<T, U>(int length)
+        => length == 0 || (RuntimeHelpers.IsReferenceOrContainsReferences<T>(), RuntimeHelpers.IsReferenceOrContainsReferences<U>()) switch
+        {
+            (false, false) => Unsafe.SizeOf<T>() + Unsafe.SizeOf<U>() <= MaxStackAllocSize / length,
+            (false, true) => Unsafe.SizeOf<T>() <= MaxStackAllocSize / length,
+            (true, false) => Unsafe.SizeOf<U>() <= MaxStackAllocSize / length,
+            (true, true) => true, // will not stackalloc
+        };
+
+    [ImplTemplate(nameof(T), nameof(_), KeyValue = OverloadOption.Disable)]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void SliceToLast<T>(ref Span<T> _) { }
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -187,7 +213,7 @@ internal static partial class SpanOperations
         if (b.Length < a.Length) a = a.Sub(0, b.Length);
     }
 
-    [OverloadTemplate(nameof(T), null)]
+    [ImplTemplate(nameof(T))]
     internal static void Rotate<T>(Span<T> span, int left, Span<T> cache = default)
     {
         Debug.Assert(0 <= left && left <= span.Length);
@@ -334,39 +360,138 @@ internal static partial class SpanOperations
         // return end - (mid - begin);
     }
 
-    internal static void PrefixSums(Span<int> counts)
+    /// <seealso href="https://en.algorithmica.org/hpc/algorithms/prefix/"/>
+    internal static void PartialSums(Span<int> counts)
     {
-        ref int last = ref counts.Ref(counts.Length - 1);
-        for (ref int count = ref counts.Ref(0); Unsafe.IsAddressLessThan(ref count, ref last); count = ref Unsafe.Inc(ref count))
+        int i = 0;
+        int acc = 0;
+#if NET8_0_OR_GREATER
+        if (Vector512.IsHardwareAccelerated)
         {
-            Unsafe.Inc(ref count) += count;
+            Debug.Assert(Vector512<int>.Count == 16);
+
+            int end = counts.Length - counts.Length % 16;
+            var A = Vector512<int>.Zero;
+            var B = Vector512.Create(15);
+
+            var S1 = Vector512.Create(0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+            var M1 = Vector512.Create(0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1);
+            var S2 = Vector512.Create(0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13);
+            var M2 = Vector512.Create(0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1);
+            var S4 = Vector512.Create(0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
+            var M4 = Vector512.Create(0, 0, 0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1);
+            var S8 = Vector512.Create(0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7);
+            var M8 = Vector512.Create(0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, -1, -1);
+
+            for (; i < end; i += 16)
+            {
+                var sub = counts.Sub(i, i + 16);
+                var V = Vector512.Create(sub);
+                V += (Vector512.Shuffle(V, S1) & M1);
+                V += (Vector512.Shuffle(V, S2) & M2);
+                V += (Vector512.Shuffle(V, S4) & M4);
+                V += (Vector512.Shuffle(V, S8) & M8);
+                A += V;
+                A.CopyTo(sub);
+                A = Vector512.Shuffle(A, B);
+            }
+
+            acc = A.GetElement(0);
+        }
+        else
+#endif
+#if NET7_0_OR_GREATER
+        if (Vector256.IsHardwareAccelerated)
+        {
+            Debug.Assert(Vector256<int>.Count == 8);
+
+            int end = counts.Length - counts.Length % 8;
+            var A = Vector256<int>.Zero;
+            var B = Vector256.Create(7);
+
+            var S1 = Vector256.Create(0, 0, 1, 2, 3, 4, 5, 6);
+            var M1 = Vector256.Create(0, -1, -1, -1, -1, -1, -1, -1);
+            var S2 = Vector256.Create(0, 0, 0, 1, 2, 3, 4, 5);
+            var M2 = Vector256.Create(0, 0, -1, -1, -1, -1, -1, -1);
+            var S4 = Vector256.Create(0, 0, 0, 0, 0, 1, 2, 3);
+            var M4 = Vector256.Create(0, 0, 0, 0, -1, -1, -1, -1);
+
+            for (; i < end; i += 8)
+            {
+                var sub = counts.Sub(i, i + 8);
+                var V = Vector256.Create(sub);
+                V += (Vector256.Shuffle(V, S1) & M1);
+                V += (Vector256.Shuffle(V, S2) & M2);
+                V += (Vector256.Shuffle(V, S4) & M4);
+                A += V;
+                A.CopyTo(sub);
+                A = Vector256.Shuffle(A, B);
+            }
+
+            acc = A.GetElement(0);
+        }
+        else if (Vector128.IsHardwareAccelerated)
+        {
+            Debug.Assert(Vector128<int>.Count == 4);
+
+            int end = counts.Length - counts.Length % 4;
+            var A = Vector128<int>.Zero;
+            var B = Vector128.Create(3);
+
+            var S1 = Vector128.Create(0, 0, 1, 2);
+            var M1 = Vector128.Create(0, -1, -1, -1);
+            var S2 = Vector128.Create(0, 0, 0, 1);
+            var M2 = Vector128.Create(0, 0, -1, -1);
+
+            for (; i < end; i += 4)
+            {
+                var sub = counts.Sub(i, i + 4);
+                var V = Vector128.Create(sub);
+                V += (Vector128.Shuffle(V, S1) & M1);
+                V += (Vector128.Shuffle(V, S2) & M2);
+                A += V;
+                A.CopyTo(sub);
+                A = Vector128.Shuffle(A, B);
+            }
+
+            acc = A.GetElement(0);
+        }
+#endif
+
+        for (; i < counts.Length; i++)
+        {
+            ref int count = ref counts.Ref(i);
+            count += acc;
+            acc = count;
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static T? Extract<T>(ref readonly T? value) => value;
 
-    [OverloadTemplate(nameof(T), null, nameof(span))]
+    [ImplTemplate(nameof(T), nameof(span), KeySelector = true)]
     internal static int MoveNullsToFront<T>(Span<T> span)
         where T : class
     {
         ref T first = ref span.Ref(0);
         ref T swap = ref span.Ref(0);
         ref T last = ref span.Ref(span.Length);
-#pragma warning disable CS8601
+#pragma warning disable CS8601, CS8619
         while (!Unsafe.AreSame(in first, in last) && first is not null)
             first = ref Unsafe.Inc(ref first);
         for (; !Unsafe.AreSame(in first, in last); first = ref Unsafe.Inc(ref first))
         {
-            if (first is null)
+            if (Extract(in first) is null)
             {
                 Swap(ref first, ref swap);
                 swap = ref Unsafe.Inc(ref swap);
             }
         }
-#pragma warning restore CS8601
+#pragma warning restore CS8601, CS8619
         return span.Offset(in swap);
     }
 
-    [OverloadTemplate(nameof(T), null, nameof(span), nameof(cache), Disable = DefaultOverloads.KeyValue)]
+    [ImplTemplate(nameof(T), nameof(span), nameof(cache), KeyValue = OverloadOption.Disable)]
     internal static int MoveNullsToFrontStable<T>(Span<T> span, Span<T> cache)
         where T : class
     {
@@ -376,7 +501,7 @@ internal static partial class SpanOperations
         for (int i = 0; i < span.Length; i++)
         {
             ref T item = ref span.Ref(i);
-            if (item is not null)
+            if (Extract(in item) is not null)
             {
                 cache.Ref(j++) = item;
             }
@@ -387,6 +512,7 @@ internal static partial class SpanOperations
         return k;
     }
 
+    [ImplTemplate(nameof(T), KeyValue = OverloadOption.Specialized)]
     internal static int MoveNullsToFrontStable<T, V>(Span<T> keys, Span<V> items, Span<T> cache, Span<V> cache_v)
         where T : class
     {
@@ -422,7 +548,7 @@ internal static partial class SpanOperations
     }
 
 #if NET7_0_OR_GREATER
-    [OverloadTemplate(nameof(T), null, nameof(span))]
+    [ImplTemplate(nameof(T), nameof(span))]
     internal static int MoveNansToFront<T>(Span<T> span)
         where T : unmanaged, IFloatingPointIeee754<T>
     {
@@ -442,7 +568,7 @@ internal static partial class SpanOperations
         return span.Offset(in swap);
     }
 #else
-    [OverloadTemplate(nameof(T), null, nameof(span))]
+    [ImplTemplate(nameof(T), nameof(span))]
     internal static int MoveNansToFront<T>(Span<T> span)
         where T : unmanaged
     {
@@ -471,4 +597,48 @@ internal static partial class SpanOperations
         return span.Offset(in swap);
     }
 #endif
+
+    internal static partial class From<V, T, TSelector>
+#if NET7_0_OR_GREATER
+        where TSelector : IKeySelector<V, T>
+#else
+        where TSelector : unmanaged, IKeySelector<V, T>
+#endif
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static T? Extract(ref readonly V? value)
+#if NET7_0_OR_GREATER
+            => TSelector.Select(in value);
+#else
+            => default(TSelector).SelectInst(in value);
+#endif
+
+        internal static int MoveNullsToFrontStable(Span<V> span, Span<V> cache)
+            //where T : class
+        {
+            Debug.Assert(!typeof(T).IsValueType);
+
+            int j = 0, k = cache.Length;
+            for (int i = 0; i < span.Length; i++)
+            {
+                ref V item = ref span.Ref(i);
+                if (Extract(in item) is null)
+                {
+                    cache.Ref(--k) = item;
+                }
+                else
+                {
+                    cache.Ref(j) = item;
+                    j++;
+                }
+            }
+            Ensure(j == k);
+            k = span.Length - j;
+            var sub = cache.Sub(j, cache.Length);
+            sub.Reverse();
+            sub.CopyTo(span);
+            cache.Sub(0, j).CopyTo(span.Sub(k, span.Length));
+            return k;
+        }
+    }
 }

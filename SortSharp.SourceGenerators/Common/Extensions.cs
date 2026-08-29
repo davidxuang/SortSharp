@@ -1,71 +1,91 @@
-﻿using System.Reflection.Metadata;
-using System.Xml.Linq;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using F = Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
+using OneOf;
 
-namespace SortSharp.SourceGenerators;
+namespace SortSharp.SourceGenerators.Common;
 
 internal static class Extensions
 {
-    public static bool TestType(this TypeSyntax? type, string? name)
-        => (type is IdentifierNameSyntax { Identifier.Text: var i } && i == name)
-        || (type is PredefinedTypeSyntax { Keyword.Text: var p } && p == name)
-        || (type is RefTypeSyntax { Type: TypeSyntax r } && TestType(r, name))
-        || (type is GenericNameSyntax { TypeArgumentList.Arguments: [TypeSyntax g] } && TestType(g, name))
-        || (type is NullableTypeSyntax { ElementType: GenericNameSyntax { TypeArgumentList.Arguments: [TypeSyntax n] } } && TestType(n, name));
-
-    public static bool TestParamType(this TypeSyntax? type, string? name)
-        => (type is IdentifierNameSyntax { Identifier.Text: var i } && i == name)
-        || (type is PredefinedTypeSyntax { Keyword.Text: var p } && p == name)
-        || (type is GenericNameSyntax { Identifier.Text: nameof(Span<>) or nameof(ReadOnlySpan<>), TypeArgumentList.Arguments: [TypeSyntax g] } && TestParamType(g, name));
-
-    public static bool HasIdentifierName(this SyntaxNode node, string? name)
+    extension(HashCode)
     {
-        return name is not null && node.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>().Any(id => id.Identifier.Text == name);
-    }
-
-    public static bool IsComparisonOperator(this SyntaxToken token) =>
-        token.IsKind(SyntaxKind.LessThanToken)
-        || token.IsKind(SyntaxKind.LessThanEqualsToken)
-        || token.IsKind(SyntaxKind.GreaterThanToken)
-        || token.IsKind(SyntaxKind.GreaterThanEqualsToken)
-        || token.IsKind(SyntaxKind.EqualsEqualsToken)
-        || token.IsKind(SyntaxKind.ExclamationEqualsToken);
-
-    public static bool HasComparisonOperator(this SyntaxNode node)
-    {
-        return node.DescendantNodesAndSelf().OfType<BinaryExpressionSyntax>().Any(b =>
-            b.OperatorToken.IsComparisonOperator());
-    }
-
-    public static T[] Squeeze<T>(this IEnumerable<T> nodes) where T : SyntaxNode
-    {
-        var arr = nodes.ToArray();
-        if (arr.Length == 2)
+        public static int CombineAll<T>(IEnumerable<T> values)
         {
-            var a = arr[0];
-            var b = arr[1];
-
-            if (a.HasTrailingTrivia && b.HasLeadingTrivia)
-            {
-                var x = a.GetTrailingTrivia().ToFullString();
-                var y = b.GetLeadingTrivia().ToFullString();
-
-                if (x.Contains("\n") && y.Contains("\n"))
-                {
-                    return [a.WithoutTrailingTrivia(), b];
-                }
-            }
+            var hash = new HashCode();
+            foreach (var value in values)
+                hash.Add(value);
+            return hash.ToHashCode();
         }
-        return arr;
     }
 
-    public static SyntaxNode SingleWithBlock(this IEnumerable<StatementSyntax> statements)
+    extension<T>(IEnumerable<T> values)
     {
-        return statements.Count() > 1
-            ? F.Block(statements.Squeeze())
-            : statements.Single();
+        public int FindIndex(Predicate<T> predicate)
+        {
+            int index = 0;
+            foreach (var value in values)
+            {
+                if (predicate(value))
+                    return index;
+                index++;
+            }
+            return -1;
+        }
+
+        public void Iterate(Action<T> action)
+        {
+            foreach (var value in values)
+                action(value);
+        }
+    }
+
+    extension(IEnumerable<string> strings)
+    {
+        public string Join(string separator = "")
+            => string.Join(separator, strings);
+    }
+
+    extension<L, R>(OneOf<L, IEnumerable<R>> oneOf)
+    {
+        public IEnumerable<OneOf<L, R>> Sequence()
+            => oneOf.Match(
+                left => [oneOf.AsT0],
+                rights => rights.Select(right => (OneOf<L, R>)right));
+    }
+
+    extension<L, R>(OneOf<IEnumerable<L>, IEnumerable<R>> oneOf)
+    {
+        public IEnumerable<OneOf<L, R>> Bisequence()
+            => oneOf.Match(
+                lefts => lefts.Select(left => (OneOf<L, R>)left),
+                rights => rights.Select(right => (OneOf<L, R>)right));
+    }
+
+    extension<L, R>(IEnumerable<OneOf<L, R>> oneOf)
+    {
+        public IEnumerable<L> Lefts()
+            => oneOf.SelectMany(one => one.Match<IEnumerable<L>>(
+                left => [left],
+                right => []));
+
+        public IEnumerable<R> Rights()
+            => oneOf.SelectMany(one => one.Match<IEnumerable<R>>(
+                left => [],
+                right => [right]));
+
+        public (IEnumerable<L> Lefts, IEnumerable<R> Rights) Seperate()
+        {
+            var lefts = new List<L>();
+            var rights = new List<R>();
+            foreach (var one in oneOf)
+                one.Switch(lefts.Add, rights.Add);
+            return (lefts, rights);
+        }
+
+        public OneOf<IEnumerable<L>, IEnumerable<R>> ValidateAll()
+        {
+            var lefts = new List<L>();
+            var rights = new List<R>();
+            foreach (var one in oneOf)
+                one.Switch(lefts.Add, rights.Add);
+            return lefts.Count > 0 ? lefts : rights;
+        }
     }
 }

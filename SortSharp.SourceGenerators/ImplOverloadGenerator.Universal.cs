@@ -2,101 +2,126 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using OneOf;
+using SortSharp.SourceGenerators.Common;
+using SortSharp.SourceGenerators.Impl;
+using SortSharp.SourceGenerators.Impl.Universal;
 using F = Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace SortSharp.SourceGenerators;
 
-partial class OverloadGenerator
+partial class ImplOverloadGenerator
 {
-    private sealed record BasicOptions(
-        string ItemType,
-        ImmutableArray<string> ItemNames,
-        bool IsItemsSpan,
-        DefaultOverloads Disable,
-        OptionalOverloads Enable);
-
-    private static IEnumerable<GeneratedMethod> GenerateMethods(
-        TemplateMethod<BasicOptions> template,
-        IEnumerable<(TypeDecl, string)> targets,
-        IDictionary<string, CallSiteBehaviors> behaviors,
-        CancellationToken ct)
+    private sealed record BroadcastReceiver(
+        TypeDef Containing,
+        ImmutableArray<string> Channels,
+        string? DataType,
+        bool IsDataUnmanaged)
     {
-        ct.ThrowIfCancellationRequested();
-
-        var decl = template.Declaration;
-        var options = template.Options;
-
-        ImmutableArray<MethodDeclarationSyntax> D = [decl];
-        if (options!.ItemNames.Any() && !options.Disable.HasFlag(DefaultOverloads.KeyValue))
+        internal static OneOf<Diagnostic, BroadcastReceiver> Resolve(GeneratorAttributeSyntaxContext ctx)
         {
-            ItemsRewriter IW = options!.IsItemsSpan // <?> => <T, V>
-                ? ItemsRewriter.CreateForSpans(behaviors, options.ItemType, options.ItemNames)
-                : ItemsRewriter.CreateForItems(behaviors, options.ItemType, options.ItemNames);
-            var iw = (MethodDeclarationSyntax)IW.Visit(decl);
-            D = D.Add(iw);
-            yield return GeneratedMethod.Create(template, iw);
+
+            var attr = ctx.Attributes.Single();
+            var channels = attr.GetArgumentArray<string>(0);
+            var typeName = attr.GetNamedArgument<string?>(nameof(ReceiverAttribute.Type));
+            var parent = TypeDef.Resolve((ITypeSymbol)ctx.TargetSymbol);
+            BroadcastReceiver? receiver = new(parent, channels, typeName, false);
+            if (typeName is not null)
+            {
+                var syntax = F.ParseTypeName(typeName);
+                TypeInfo typeInfo = ctx.SemanticModel.GetSpeculativeTypeInfo(
+                    ctx.TargetNode.SpanStart,
+                    syntax,
+                    SpeculativeBindingOption.BindAsTypeOrNamespace);
+                if (typeInfo.Type is ITypeSymbol symbol)
+                    return receiver with { IsDataUnmanaged = symbol.IsUnmanagedType };
+                else
+                    return Diagnostic.Create(DiagnosticDescriptors.UnkownType, ctx.TargetNode.GetLocation(), typeName);
+            }
+            return receiver;
         }
 
-        if (!options.Enable.HasFlag(OptionalOverloads.SiblingSpecializations))
-            yield break;
+        public bool Equals(BroadcastReceiver? other)
+            => other is not null
+                && Containing.Equals(other.Containing)
+                && Channels.SequenceEqual(other.Channels)
+                && DataType == other.DataType
+                && IsDataUnmanaged == other.IsDataUnmanaged;
+        public override int GetHashCode()
+            => HashCode.Combine(
+                Containing,
+                HashCode.CombineAll(Channels),
+                DataType,
+                IsDataUnmanaged);
+    }
 
-        foreach (var (target, typeName) in targets.Where(t => t.Item1.Containing?.HintName == template.OriginType.Containing!.HintName))
+    private sealed record UniversalTemplate(
+        MethodDeclarationSyntax Declaration,
+        ImmutableArray<InvocationInfo> Invocations,
+        TemplateInfo Info,
+        ImmutableArray<BroadcastReceiver> Receivers)
+        : Template(Declaration, Invocations, Info)
+    {
+        public static UniversalTemplate Create(Template template, IEnumerable<BroadcastReceiver> receivers, CancellationToken ct)
         {
-            if (string.IsNullOrEmpty(typeName))
-                foreach (var d in D)
-                    yield return GeneratedMethod.Create(template, d, target);
-            else
+            ct.ThrowIfCancellationRequested();
+
+            return new UniversalTemplate(
+                template.Declaration,
+                template.Invocations,
+                template.Info,
+                template.Info.Options?.Broadcast is string b
+                    ? [.. receivers.Where(r => r.Channels.Contains(b))]
+                    : []);
+        }
+
+        public IEnumerable<GeneratedMethod> Generate()
+        {
+            var options = Info.Options!;
+            List<(MethodDeclarationSyntax, TypeDef?)> variants = [(Declaration, null)];
+
+            if (options.ItemNames.Any() && options.KeyValue == OverloadOption.Enable)
             {
-                var IR = new SpecializationRewriter("T", typeName);
-                foreach (var d in D)
+                KeyValueRewriter KV = options.AreItemsSpan // <?> => <T, V>
+                    ? KeyValueRewriter.CreateForSpans(Invocations, options.ItemType, options.ItemNames)
+                    : KeyValueRewriter.CreateForItems(Invocations, options.ItemType, options.ItemNames);
+                var kv = (MethodDeclarationSyntax)KV.Visit(Declaration);
+                variants.Add((kv, null));
+                yield return Variant(kv);
+            }
+
+            if (options.ItemType is not null && options.KeySelector)
+            {
+                KeySelectorRewriter KS = new(Invocations, options.ItemType!); // <.., V, TSelector>
+                var ks = (MethodDeclarationSyntax)KS.Visit(Declaration)!;
+                var child = Declaration.TypeParameterList?.Parameters.Any(p => p.Identifier.Text == options.ItemType) == true
+                    ? new TypeDef(Info.Namespace, "From", ["V", "T", "TSelector"], Info.ContainingType, Modifier: Info.ContainingType.Modifier)
+                    : new TypeDef(Info.Namespace, "From", ["V", "TSelector"], Info.ContainingType, Modifier: Info.ContainingType.Modifier);
+                variants.Add((ks, child));
+                yield return Variant(ks, child);
+            }
+
+            if (options.Broadcast is null)
+                yield break;
+
+            foreach (var receiver in Receivers)
+            {
+                if (receiver.DataType is null || string.IsNullOrEmpty(receiver.DataType))
                 {
-                    var ir = (MethodDeclarationSyntax)IR.Visit(d);
-                    yield return GeneratedMethod.Create(template, ir, target);
+                    foreach (var (v, child) in variants)
+                        yield return Variant(v, child is not null ? child with { Containing = receiver?.Containing } : receiver?.Containing);
+                }
+                else
+                {
+                    CSharpSyntaxRewriter TR = new TypeRewriter("T", receiver.DataType);
+                    if (!receiver.IsDataUnmanaged)
+                        TR = new ComposedRewriter(TR, new StackallocRewriter(receiver.DataType));
+                    foreach (var (v, child) in variants)
+                    {
+                        yield return Variant((MethodDeclarationSyntax)TR.Visit(v), child is not null ? child with { Containing = receiver?.Containing } : receiver?.Containing);
+                    }
                 }
             }
         }
-    }
-}
-
-internal sealed class SpecializationRewriter(string old, string name) : CSharpSyntaxRewriter
-{
-    public override SyntaxNode? VisitPredefinedType(PredefinedTypeSyntax node)
-        => node.Keyword.Text == old
-            ? F.ParseTypeName(name).WithTriviaFrom(node)
-            : base.VisitPredefinedType(node);
-
-    public override SyntaxNode? VisitTypeParameter(TypeParameterSyntax node)
-        => node.Identifier.Text == old
-            ? F.ParseTypeName(name).WithTriviaFrom(node)
-            : base.VisitTypeParameter(node);
-
-    public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
-        => node.Identifier.Text == old
-            ? F.ParseTypeName(name).WithTriviaFrom(node)
-            : base.VisitIdentifierName(node);
-
-    public override SyntaxNode? VisitBlock(BlockSyntax node)
-    {
-        return node.Update(
-            VisitList(node.AttributeLists),
-            VisitToken(node.OpenBraceToken),
-            F.List(node.Statements.SelectMany(stmt => stmt switch
-            {
-                LocalDeclarationStatementSyntax l => TransformLocalDeclarationStatement(l).Squeeze(),
-                _ => [(StatementSyntax)Visit(stmt)]
-            })),
-            VisitToken(node.CloseBraceToken));
-    }
-
-    private IEnumerable<StatementSyntax> TransformLocalDeclarationStatement(LocalDeclarationStatementSyntax node)
-    {
-        node = base.VisitLocalDeclarationStatement(node) as LocalDeclarationStatementSyntax ?? throw new InvalidOperationException();
-        if (node.Declaration.Type.TestType(name) && node.Declaration.Variables.Count == 1 && node.Declaration.Variables.Single().Initializer is { Value: StackAllocArrayCreationExpressionSyntax { Type: ArrayTypeSyntax { RankSpecifiers: [{ Sizes: [var size] }] } } })
-        {
-            yield return F.ParseStatement($"using var owner = global::System.Buffers.MemoryPool<{name}>.Shared.Rent({size.ToFullString()});");
-            yield return F.ParseStatement($"Span<{name}> {node.Declaration.Variables.Single().Identifier.Text} = owner.Memory.Span.Sub(0, {size.ToFullString()});");
-        }
-        else
-            yield return node;
     }
 }

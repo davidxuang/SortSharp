@@ -23,18 +23,20 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <SystemMemoryVersion>4.5.*</SystemMemoryVersion>
-    <SystemUnsafeVersion>5.0.*</SystemUnsafeVersion>
+    <SystemVersion4>4.5.*</SystemVersion4>
+    <SystemVersion6>5.0.*</SystemVersion6>
+    <DateTimeOnlyVersion>7.0.*</DateTimeOnlyVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'netstandard2.0'))">
     <DefineConstants>$(DefineConstants);NETSTANDARD2_0_COMPAT</DefineConstants>
-    <SystemUnsafeVersion>6.0.*</SystemUnsafeVersion>
+    <SystemVersion6>6.0.*</SystemVersion6>
   </PropertyGroup>
 
   <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'netstandard2.0')) And '$(TargetFramework)' != 'net461'">
-    <SystemMemoryVersion>4.6.*</SystemMemoryVersion>
-    <SystemUnsafeVersion>6.1.*</SystemUnsafeVersion>
+    <SystemVersion4>4.6.*</SystemVersion4>
+    <SystemVersion6>6.1.*</SystemVersion6>
+    <DateTimeOnlyVersion>9.0.*</DateTimeOnlyVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'netstandard2.1'))">
@@ -54,7 +56,11 @@
   </PropertyGroup>
 
   <ItemGroup Condition="!$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">
-    <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="$(SystemUnsafeVersion)" />
+    <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="$(SystemVersion6)" />
+  </ItemGroup>
+
+  <ItemGroup Condition="!$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net6.0'))">
+    <PackageReference Include="Portable.System.DateTimeOnly" Version="$(DateTimeOnlyVersion)" Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'netstandard2.0'))" />
   </ItemGroup>
 
   <ItemGroup Condition="!$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net5.0'))">
@@ -66,12 +72,12 @@
 
   <ItemGroup Condition="!$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'netstandard2.1'))">
     <PackageReference Include="Nullable" Version="1.3.*" />
-    <PackageReference Include="System.Memory" Version="$(SystemMemoryVersion)" />
-    <PackageReference Include="System.Numerics.Vectors" Version="$(SystemMemoryVersion)" />
+    <PackageReference Include="System.Memory" Version="$(SystemVersion4)" />
+    <PackageReference Include="System.Numerics.Vectors" Version="$(SystemVersion4)" />
   </ItemGroup>
 
   <ItemGroup Condition="!$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'netstandard2.0'))">
-    <PackageReference Include="System.ValueTuple" Version="$(SystemMemoryVersion)" />
+    <PackageReference Include="System.ValueTuple" Version="$(SystemVersion4)" />
   </ItemGroup>
 
   <ItemGroup>
@@ -83,5 +89,19 @@
     <ProjectReference Include="..\SortSharp.SourceGenerators\SortSharp.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" SkipGetTargetFrameworkProperties="true" UndefineProperties="TargetFramework" />
     <None Include="..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
+
+  <Target Name="AddSourceGeneratorDependencies"
+          AfterTargets="ResolveProjectReferences"
+          BeforeTargets="CoreCompile">
+    <PropertyGroup>
+      <_SGDir>$(MSBuildProjectDirectory)\..\SortSharp.SourceGenerators\bin\$(Configuration)\netstandard2.0</_SGDir>
+    </PropertyGroup>
+    
+    <ItemGroup>
+      <_SourceGeneratorDependency Include="$(_SGDir)\OneOf.dll;$(_SGDir)\Microsoft.Bcl.HashCode.dll"
+                                  Exclude="**\SortSharp.SourceGenerators.dll;**\Microsoft.CodeAnalysis*.dll" />
+      <Analyzer Include="@(_SourceGeneratorDependency)" />
+    </ItemGroup>
+  </Target>
 
 </Project>

@@ -13,151 +13,64 @@ namespace SortSharp;
 
 public static partial class Extensions
 {
-    /// <summary>
-    /// Sorts the elements using the least significant digit (LSD) radix sort algorithm,
-    /// which is <see href="https://en.wikipedia.org/wiki/Sorting_algorithm#Stability">stable</see>.
-    /// </summary>
-    /// <param name="span">The span to sort.</param>
-    /// <param name="bitWidth">The number of bits to sort at each iteration.</param>
-    [SpecializationTemplate("ulong")]
-    public static void RadixLsdSort(this Span<ulong> span, int bitWidth = 8)
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="RadixLsd"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="span"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="bitwidth"]/*' />
+    [ApiTemplate("ulong")]
+    public static void RadixLsdSort(this Span<ulong> span, int bitwidth = 8)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThan(bitWidth, 2);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(bitWidth, 12);
-        Radix.Int<ulong>.LsdSort(span, bitWidth);
+        ArgumentOutOfRangeException.ThrowIfLessThan(bitwidth, 2);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(bitwidth, 12);
+        Radix.BInt<ulong>.LsdSort(span, bitwidth);
     }
 
-    /// <summary>
-    /// Sorts the elements using the most significant digit (MSD) radix sort algorithm,
-    /// which is <see href="https://en.wikipedia.org/wiki/Sorting_algorithm#Stability">stable</see> only if <paramref name="profile"/> is <see cref="MemoryProfile.High" /> or higher.
-    /// </summary>
-    /// <param name="span">The span to sort.</param>
-    /// <param name="bitWidth">The number of bits to sort at each iteration.</param>
-    /// <param name="profile">The profile to use for allocating temporary cache. A fixed limit is applied with the default profile.</param>
-    [SpecializationTemplate("ulong")]
-    public static void RadixMsdSort(this Span<ulong> span, int bitWidth = 8, MemoryProfile profile = MemoryProfile.Baseline)
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="RadixMsd"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="span"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="bitwidth"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="profile"]/*' />
+    [ApiTemplate("ulong")]
+    public static void RadixMsdSort(this Span<ulong> span, int bitwidth = 8, MemoryProfile profile = MemoryProfile.Baseline)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThan(bitWidth, 2);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(bitWidth, 12);
-        Radix.Int<ulong>.MsdSort(span, bitWidth, profile);
-    }
-
-    /// <typeparam name="V">The type of the values.</typeparam>
-    /// <param name="keys">The span of keys to sort.</param>
-    /// <param name="items">The span of values to sort.</param>
-    /// <param name="bitWidth">The number of bits to sort at each iteration.</param>
-    /// <inheritdoc cref="RadixLsdSort(Span{ulong}, int)" />
-    [SpecializationTemplate("ulong")]
-    public static void RadixLsdSort<V>(this Span<ulong> keys, Span<V> items, int bitWidth = 8)
-    {
-        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
-        ArgumentOutOfRangeException.ThrowIfLessThan(bitWidth, 2);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(bitWidth, 12);
-        Radix.Int<ulong>.LsdSort(keys, items, bitWidth);
-    }
-
-    /// <typeparam name="V">The type of the values.</typeparam>
-    /// <param name="keys">The span of keys to sort.</param>
-    /// <param name="items">The span of values to sort.</param>
-    /// <param name="bitWidth">The number of bits to sort at each iteration.</param>
-    /// <param name="profile">The profile to use for allocating temporary cache. A fixed limit is applied with the default profile.</param>
-    /// <inheritdoc cref="RadixMsdSort(Span{ulong}, int, MemoryProfile)" />
-    [SpecializationTemplate("ulong")]
-    public static void RadixMsdSort<V>(this Span<ulong> keys, Span<V> items, int bitWidth = 8, MemoryProfile profile = MemoryProfile.Baseline)
-    {
-        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
-        ArgumentOutOfRangeException.ThrowIfLessThan(bitWidth, 2);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(bitWidth, 12);
-        Radix.Int<ulong>.MsdSort(keys, items, bitWidth, profile);
+        ArgumentOutOfRangeException.ThrowIfLessThan(bitwidth, 2);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(bitwidth, 12);
+        Radix.BInt<ulong>.MsdSort(span, bitwidth, profile);
     }
 
 #if NET7_0_OR_GREATER
-    /// <typeparam name="T">The type of elements.</typeparam>
-    /// <inheritdoc cref="RadixLsdSort(Span{ulong}, int)" />
-    public static void RadixLsdSort<T>(this Span<T> span, int bitWidth = 8)
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="RadixLsd"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/TypeParams/Member[@name="T"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="span"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="bitwidth"]/*' />
+    [ApiTemplate(nameof(T), KeySelector = true)]
+    public static void RadixLsdSort<T>(this Span<T> span, int bitwidth = 8)
         where T : unmanaged, IBinaryInteger<T>, IMinMaxValue<T>
     {
-        ArgumentOutOfRangeException.ThrowIfLessThan(bitWidth, 2);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(bitWidth, 12);
-        Radix.Int<T>.LsdSort(span, bitWidth);
+        ArgumentOutOfRangeException.ThrowIfLessThan(bitwidth, 2);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(bitwidth, 12);
+        Radix.BInt<T>.LsdSort(span, bitwidth);
     }
 
-    /// <typeparam name="T">The type of elements.</typeparam>
-    /// <inheritdoc cref="RadixMsdSort(Span{ulong}, int, MemoryProfile)" />
-    public static void RadixMsdSort<T>(this Span<T> span, int bitWidth = 8, MemoryProfile profile = MemoryProfile.Baseline)
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="RadixMsd"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/TypeParams/Member[@name="T"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="span"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="bitwidth"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="profile"]/*' />
+    [ApiTemplate(nameof(T), KeySelector = true)]
+    public static void RadixMsdSort<T>(this Span<T> span, int bitwidth = 8, MemoryProfile profile = MemoryProfile.Baseline)
         where T : unmanaged, IBinaryInteger<T>, IMinMaxValue<T>
     {
-        ArgumentOutOfRangeException.ThrowIfLessThan(bitWidth, 2);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(bitWidth, 12);
-        Radix.Int<T>.MsdSort(span, bitWidth, profile);
+        ArgumentOutOfRangeException.ThrowIfLessThan(bitwidth, 2);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(bitwidth, 12);
+        Radix.BInt<T>.MsdSort(span, bitwidth, profile);
     }
 
-    /// <typeparam name="K">The type of the keys.</typeparam>
-    /// <typeparam name="V">The type of the values.</typeparam>
-    /// <inheritdoc cref="RadixLsdSort{V}(Span{ulong}, Span{V}, int)" />
-    public static void RadixLsdSort<K, V>(this Span<K> keys, Span<V> items, int bitWidth = 8)
-        where K : unmanaged, IBinaryInteger<K>, IMinMaxValue<K>
-    {
-        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
-        ArgumentOutOfRangeException.ThrowIfLessThan(bitWidth, 2);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(bitWidth, 12);
-        Radix.Int<K>.LsdSort(keys, items, bitWidth);
-    }
-
-    /// <typeparam name="K">The type of the keys.</typeparam>
-    /// <typeparam name="V">The type of the values.</typeparam>
-    /// <inheritdoc cref="RadixMsdSort{V}(Span{ulong}, Span{V}, int, MemoryProfile)" />
-    public static void RadixMsdSort<K, V>(this Span<K> keys, Span<V> items, int bitWidth = 8, MemoryProfile profile = MemoryProfile.Baseline)
-        where K : unmanaged, IBinaryInteger<K>, IMinMaxValue<K>
-    {
-        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
-        ArgumentOutOfRangeException.ThrowIfLessThan(bitWidth, 2);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(bitWidth, 12);
-        Radix.Int<K>.MsdSort(keys, items, bitWidth, profile);
-    }
 #endif
 }
 
-[Sort(Properties = SortProperties.NonComparison)]
+[Sort]
 internal static partial class Radix
 {
-    const int MaxStackAllocSize = 1 << 16;
-    const int FallbackSortThreshold = 128;
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void SortCounts(Span<int> a, Span<int> b) => PDQ.Op<int>.Sort(a, b);
-
-    static int FindSingleBucket(ReadOnlySpan<int> counts, int length)
-    {
-        int i = 0;
-        if (Vector.IsHardwareAccelerated) // assumes Vector<int>.IsSupported
-        {
-            int width = Vector<int>.Count;
-            int end = counts.Length - counts.Length % width;
-            Vector<int> Z = Vector<int>.Zero;
-            for (; i < end; i += width)
-            {
-                Vector<int> V = Unsafe.ReadUnaligned<Vector<int>>(ref Unsafe.As<int, byte>(ref Unsafe.AsRef(in counts.Ref(i))));
-                if (Vector.EqualsAll(V, Z)) continue;
-                for (end = i + width; i < end; i++)
-                {
-                    int c = counts.Ref(i);
-                    if (c > 0)
-                        return c == length ? i : -1;
-                }
-                throw new InvalidOperationException();
-            }
-        }
-        for (; i < counts.Length; i++)
-        {
-            int c = counts.Ref(i);
-            if (c > 0)
-                return c == length ? i : -1;
-        }
-        throw new InvalidOperationException();
-    }
-
-    internal static partial class Int<T>
+    internal static partial class BInt<T>
         where T : unmanaged,
 #if NET7_0_OR_GREATER
         IBinaryInteger<T>, IMinMaxValue<T>
@@ -175,14 +88,14 @@ internal static partial class Radix
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static int Compare(ref readonly T a, ref readonly T b) => a.CompareTo(b);
 
-        [OverloadTemplate(nameof(T), null, nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span))]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static void FallbackSort(Span<T> span)
         {
             PDQ.Op<T>.Sort(span);
         }
 
-        [OverloadTemplate(nameof(T), null, nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span))]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static void FallbackSortStable(Span<T> span, MemoryProfile profile)
         {
@@ -192,7 +105,7 @@ internal static partial class Radix
                 Wiki.Cmp<T>.Sort(span, profile);
         }
 
-        [OverloadTemplate(nameof(T), null, nameof(span), nameof(cache))]
+        [ImplTemplate(nameof(T), nameof(span), nameof(cache))]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static void FallbackSortStableReuse(Span<T> span, Span<T> cache)
         {
@@ -206,66 +119,49 @@ internal static partial class Radix
             }
         }
 
-        private static T GetMask(short bitWidth)
+        private static T GetMask(short bitwidth)
 #if NET7_0_OR_GREATER
-                => unchecked((T.One << bitWidth) - T.One);
+                => unchecked((T.One << bitwidth) - T.One);
 #else
         {
             unchecked
             {
-                if (typeof(T) == typeof(sbyte)) return (T)(object)(sbyte)((1 << bitWidth) - 1);
-                else if (typeof(T) == typeof(byte)) return (T)(object)(byte)((1 << bitWidth) - 1);
-                else if (typeof(T) == typeof(short)) return (T)(object)(short)((1 << bitWidth) - 1);
-                else if (typeof(T) == typeof(ushort)) return (T)(object)(ushort)((1 << bitWidth) - 1);
-                else if (typeof(T) == typeof(int)) return (T)(object)((1 << bitWidth) - 1);
-                else if (typeof(T) == typeof(uint)) return (T)(object)((1U << bitWidth) - 1);
-                else if (typeof(T) == typeof(long)) return (T)(object)((1L << bitWidth) - 1L);
-                else if (typeof(T) == typeof(ulong)) return (T)(object)((1UL << bitWidth) - 1UL);
-                else if (typeof(T) == typeof(nint)) return (T)(object)(nint)((1L << bitWidth) - 1L);
-                else if (typeof(T) == typeof(nuint)) return (T)(object)(nuint)((1UL << bitWidth) - 1UL);
-                else throw new NotSupportedException();
+                if (typeof(T) == typeof(sbyte)) return (T)(object)(sbyte)((1 << bitwidth) - 1);
+                else if (typeof(T) == typeof(byte)) return (T)(object)(byte)((1 << bitwidth) - 1);
+                else if (typeof(T) == typeof(short)) return (T)(object)(short)((1 << bitwidth) - 1);
+                else if (typeof(T) == typeof(ushort)) return (T)(object)(ushort)((1 << bitwidth) - 1);
+                else if (typeof(T) == typeof(int)) return (T)(object)((1 << bitwidth) - 1);
+                else if (typeof(T) == typeof(uint)) return (T)(object)((1U << bitwidth) - 1);
+                else if (typeof(T) == typeof(long)) return (T)(object)((1L << bitwidth) - 1L);
+                else if (typeof(T) == typeof(ulong)) return (T)(object)((1UL << bitwidth) - 1UL);
+                else if (typeof(T) == typeof(nint)) return (T)(object)(nint)((1L << bitwidth) - 1L);
+                else if (typeof(T) == typeof(nuint)) return (T)(object)(nuint)((1UL << bitwidth) - 1UL);
+                ThrowHelper.ThrowUnreachable();
+                return default; // unreachable
             }
         }
 #endif
 
         [StructLayout(LayoutKind.Auto)]
-        private readonly struct Digit(short offset, T mask)
+        private ref struct State(short bitwidth, short offset) : IState
         {
-            public readonly T Mask = mask;
-            public readonly short Offset = offset;
-        }
-        
-        [StructLayout(LayoutKind.Auto)]
-        private ref struct LsdState(short bitWidth)
-        {
-            public short Step { get; private set; } = bitWidth;
-            public short Offset { get; private set; } = 0;
-            /// <remarks>cached for performance.</remarks>
-            public readonly T Mask { get; } = GetMask(bitWidth); 
+            private short Step = bitwidth;
+            public short Offset { get; private set; } = offset;
+            /// <remarks>cached for performance, keep in sync with <see cref="Step"/>.</remarks>
+            public T Mask { get; private set; } = GetMask(bitwidth);
+
+            public static State CreateLsd(short bitwidth) => new(bitwidth, 0);
+            public static State CreateMsd(short bitwidth) => new(bitwidth, (short)(Width - bitwidth));
 
             public readonly int BucketCount => 1 << Step;
 
-            public bool MoveNext()
+            public bool TryMoveFromLsd()
             {
                 Offset += Step;
                 Step = (short)Math.Min(Step, Width - Offset);
                 return Offset < Width;
             }
-
-            public readonly Digit Current => new(Offset, Mask);
-        }
-
-        [StructLayout(LayoutKind.Auto)]
-        private ref struct MsdState(short bitWidth)
-        {
-            public short Step { get; private set; } = bitWidth;
-            public short Offset { get; private set; } = (short)(Width - bitWidth);
-            /// <remarks>cached for performance, keep in sync with <see cref="Step"/>.</remarks>
-            public T Mask { get; private set; } = GetMask(bitWidth); 
-
-            public readonly int BucketCount => 1 << Step;
-
-            public bool MoveNext()
+            public bool TryMoveFromMsd()
             {
                 if (Offset >= Step)
                 {
@@ -282,28 +178,26 @@ internal static partial class Radix
                 else
                     return false;
             }
-
-            public readonly Digit Current => new(Offset, Mask);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static int Extract(ref readonly T value, ref readonly Digit digit)
+        static int Extract(ref readonly T value, ref readonly State state)
 #if NET7_0_OR_GREATER
-            => Convert.ToInt32<T>(((value ^ T.MinValue) >>> digit.Offset) & digit.Mask);
+            => Convert.ToInt32<T>(((value ^ T.MinValue) >>> state.Offset) & state.Mask);
 #else
             => value switch
             {
-                sbyte i8 => ((i8 ^ sbyte.MinValue) >>> digit.Offset) & (sbyte)(object)digit.Mask,
-                byte u8 => (u8 >>> digit.Offset) & (byte)(object)digit.Mask,
-                short i16 => ((i16 ^ short.MinValue) >>> digit.Offset) & (short)(object)digit.Mask,
-                ushort u16 => (u16 >>> digit.Offset) & (ushort)(object)digit.Mask,
-                int i32 => ((i32 ^ int.MinValue) >>> digit.Offset) & (int)(object)digit.Mask,
-                uint u32 => (int)((u32 >>> digit.Offset) & (uint)(object)digit.Mask),
-                long i64 => (int)(((i64 ^ long.MinValue) >>> digit.Offset) & (long)(object)digit.Mask),
-                ulong u64 => (int)((u64 >>> digit.Offset) & (ulong)(object)digit.Mask),
-                nint isize => (int)(((isize ^ nint.MinValue) >>> digit.Offset) & (nint)(object)digit.Mask),
-                nuint usize => (int)((usize >>> digit.Offset) & (nuint)(object)digit.Mask),
-                _ => throw new NotSupportedException()
+                sbyte i8 => ((i8 ^ sbyte.MinValue) >>> state.Offset) & (sbyte)(object)state.Mask,
+                byte u8 => (u8 >>> state.Offset) & (byte)(object)state.Mask,
+                short i16 => ((i16 ^ short.MinValue) >>> state.Offset) & (short)(object)state.Mask,
+                ushort u16 => (u16 >>> state.Offset) & (ushort)(object)state.Mask,
+                int i32 => ((i32 ^ int.MinValue) >>> state.Offset) & (int)(object)state.Mask,
+                uint u32 => (int)((u32 >>> state.Offset) & (uint)(object)state.Mask),
+                long i64 => (int)(((i64 ^ long.MinValue) >>> state.Offset) & (long)(object)state.Mask),
+                ulong u64 => (int)((u64 >>> state.Offset) & (ulong)(object)state.Mask),
+                nint isize => (int)(((isize ^ nint.MinValue) >>> state.Offset) & (nint)(object)state.Mask),
+                nuint usize => (int)((usize >>> state.Offset) & (nuint)(object)state.Mask),
+                _ => ThrowHelper.ThrowUnreachable()
             };
 #endif
 
@@ -311,43 +205,42 @@ internal static partial class Radix
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static bool MsdSkipBucket(int _) => false;
 
-        [OverloadTemplate(nameof(T), null, Enable = OptionalOverloads.SiblingSpecializations)]
-        static void GetHistogram(ReadOnlySpan<T> span, Span<int> counts, ref readonly Digit digit)
+        [ImplTemplate(nameof(T), Broadcast = nameof(Radix))]
+        static void GetHistogram(ReadOnlySpan<T> span, Span<int> counts, ref readonly State state)
         {
             ref readonly T first = ref span.Ref(0);
             ref readonly T last = ref span.Ref(span.Length);
             for (; Unsafe.IsAddressLessThan(in first, in last); first = ref Unsafe.RO.Add(in first, 1))
-                counts.Ref(Extract(in first, in digit))++;
+                counts.Ref(Extract(in first, in state))++;
         }
 
-        [OverloadTemplate(nameof(T), null, nameof(src), nameof(dst), Enable = OptionalOverloads.SiblingSpecializations)]
-        static void CopyByHistogram(ReadOnlySpan<T> src, Span<T> dst, Span<int> heads, ref readonly Digit digit)
+        [ImplTemplate(nameof(T), nameof(src), nameof(dst), Broadcast = nameof(Radix))]
+        static void CopyByHistogram(ReadOnlySpan<T> src, Span<T> dst, Span<int> heads, ref readonly State state)
         {
             for (int i = 0; i < src.Length; i++)
             {
                 ref readonly T t = ref src.Ref(i);
-                int b = Extract(in t, in digit);
+                int b = Extract(in t, in state);
                 int d = heads.Ref(b)++;
                 Ensure(d < dst.Length); // manual bound check
                 dst.Ref(d) = t;
             }
         }
 
-        [OverloadTemplate(nameof(T), null, nameof(src), nameof(dst), Enable = OptionalOverloads.SiblingSpecializations)]
+        [ImplTemplate(nameof(T), nameof(src), nameof(dst), Broadcast = nameof(Radix))]
         [SkipLocalsInit]
-        static void LsdSortLoop(Span<T> src, Span<T> dst, Span<int> heads, LsdState state, bool parity = false)
+        static void LsdSortLoop(Span<T> src, Span<T> dst, Span<int> heads, State state, bool parity = false)
         {
             Span<int> c = stackalloc int[state.BucketCount];
             while (true)
             {
-                Digit digit = state.Current;
                 Span<int> counts = c.Sub(0, state.BucketCount);
                 counts.Clear();
-                GetHistogram(src, counts, in digit);
+                GetHistogram(src, counts, in state);
                 int b = FindSingleBucket(counts, src.Length);
                 if (b >= 0)
                 {
-                    if (state.MoveNext())
+                    if (state.TryMoveFromLsd())
                         continue;
                     else if (parity)
                         src.CopyTo(dst);
@@ -356,11 +249,11 @@ internal static partial class Radix
 
                 counts.CopyTo(heads.Sub(1, heads.Length));
                 heads.Ref(0) = 0; // clearing
-                PrefixSums(heads);
+                PartialSums(heads);
 
-                CopyByHistogram(src, dst, heads, in digit);
+                CopyByHistogram(src, dst, heads, in state);
 
-                if (!state.MoveNext())
+                if (!state.TryMoveFromLsd())
                     break;
 
                 Span<T> tmp = src;
@@ -373,15 +266,15 @@ internal static partial class Radix
                 dst.CopyTo(src);
         }
 
-        [OverloadTemplate(nameof(T), null, nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span))]
         [SkipLocalsInit]
-        internal static void LsdSort(Span<T> span, int bitWidth)
+        internal static void LsdSort(Span<T> span, int bitwidth)
         {
-            Debug.Assert(bitWidth > 0 && bitWidth <= Math.Min(16, Width));
+            Debug.Assert(bitwidth > 0 && bitwidth <= Math.Min(16, Width));
 
             if (span.Length > FallbackSortThreshold)
             {
-                var state = new LsdState((short)bitWidth);
+                var state = State.CreateLsd((short)bitwidth);
                 using MemoryOwner<T> owner = new(MemoryPool<T>.Shared.Rent(span.Length));
                 LsdSortLoop(span, owner.Memory.Span.Sub(0, span.Length), stackalloc int[state.BucketCount + 1], state);
             }
@@ -389,10 +282,10 @@ internal static partial class Radix
                 FallbackSortStable(span, MemoryProfile.High);
         }
 
-        /// <remarks><see href="https://github.com/skarupke/radix_sort"/></remarks>
-        [OverloadTemplate(nameof(T), null, nameof(span), Enable = OptionalOverloads.SiblingSpecializations)]
+        /// <seealso href="https://github.com/skarupke/radix_sort"/>
+        [ImplTemplate(nameof(T), nameof(span), Broadcast = nameof(Radix))]
         [SkipLocalsInit]
-        static void SkaSwap(Span<T> span, Span<int> counts, Span<int> heads, int bucketCount, ref readonly Digit digit)
+        static void SkaSwap(Span<T> span, Span<int> counts, Span<int> heads, int bucketCount, ref readonly State state)
         {
             Span<int> links = stackalloc int[bucketCount];
             for (int b = 0; b < links.Length; b += 1)
@@ -443,7 +336,7 @@ internal static partial class Radix
                     for (int o = 0; o < len; o++)
                     {
                         ref T t = ref span.Ref(offset + o);
-                        int tb = Extract(in t, in digit);
+                        int tb = Extract(in t, in state);
                         int d = heads.Ref(tb)++;
                         Ensure(d < span.Length); // manual bound check
                         Swap(ref t, ref span.Ref(d));
@@ -455,7 +348,7 @@ internal static partial class Radix
             }
         }
 
-        [OverloadTemplate(nameof(T), null, Enable = OptionalOverloads.SiblingSpecializations)]
+        [ImplTemplate(nameof(T), Broadcast = nameof(Radix))]
         static bool TestSorted(ReadOnlySpan<T> span, out int cmp)
         {
             Debug.Assert(span.Length >= 3);
@@ -473,20 +366,18 @@ internal static partial class Radix
             return true;
         }
 
-        [OverloadTemplate(nameof(T), null, nameof(src), nameof(dst), Enable = OptionalOverloads.SiblingSpecializations)]
+        [ImplTemplate(nameof(T), nameof(src), nameof(dst), Broadcast = nameof(Radix))]
         [MethodImpl(MethodImplOptions.NoInlining)]
-        static void MsdSortBuffered(Span<T> src, Span<T> dst, Span<int> heads, MsdState state, bool stable, bool parity = false)
+        static void MsdSortBuffered(Span<T> src, Span<T> dst, Span<int> heads, State state, bool stable, bool parity = false)
         {
-            Digit digit = state.Current;
             Span<int> counts = stackalloc int[state.BucketCount];
         rewind:
-            GetHistogram(src, counts, in digit);
+            GetHistogram(src, counts, in state);
             int b = FindSingleBucket(counts, src.Length);
             if (b >= 0)
             {
-                if (!MsdSkipBucket(b) && state.MoveNext())
+                if (!MsdSkipBucket(b) && state.TryMoveFromMsd())
                 {
-                    digit = state.Current;
                     counts = counts.Sub(0, state.BucketCount);
                     counts.Clear();
                     goto rewind;
@@ -498,11 +389,11 @@ internal static partial class Radix
 
             counts.CopyTo(heads.Sub(1, heads.Length));
             heads.Ref(0) = 0; // clearing
-            PrefixSums(heads);
+            PartialSums(heads);
 
-            CopyByHistogram(src, dst, heads, in digit);
+            CopyByHistogram(src, dst, heads, in state);
 
-            if (!state.MoveNext())
+            if (!state.TryMoveFromMsd())
             {
                 if (!parity)
                     dst.CopyTo(src);
@@ -538,12 +429,12 @@ internal static partial class Radix
             }
         }
 
-        /// <remarks><see href="https://github.com/lakwet/voracious_sort" /></remarks>
-        [OverloadTemplate(nameof(T), null, nameof(span), Enable = OptionalOverloads.SiblingSpecializations)]
+        /// <seealso href="https://github.com/lakwet/voracious_sort" />
+        [ImplTemplate(nameof(T), nameof(span), Broadcast = nameof(Radix))]
         [MethodImpl(MethodImplOptions.NoInlining)]
-        static void MsdSortUnstable(Span<T> span, Span<int> heads, MsdState state, MemoryProfile profile, int heuristic = 2)
+        static void MsdSortUnstable(Span<T> span, Span<int> heads, State state, MemoryProfile profile, int heuristic = 2)
         {
-            if (profile >= MemoryProfile.Baseline && (nint)Unsafe.SizeOf<T>() * span.Length <= MaxStackAllocSize)
+            if (profile >= MemoryProfile.Baseline && CanStackAlloc<T>(span.Length))
             {
                 Span<T> cache = stackalloc T[span.Length]; // could skip locals init
                 MsdSortBuffered(span, cache, heads, state, false);
@@ -552,12 +443,11 @@ internal static partial class Radix
 
             Span<int> counts = stackalloc int[state.BucketCount];
         rewind:
-            Digit digit = state.Current;
-            GetHistogram(span, counts, in digit);
+            GetHistogram(span, counts, in state);
             int b = FindSingleBucket(counts, span.Length);
             if (b >= 0)
             {
-                if (!MsdSkipBucket(b) && state.MoveNext())
+                if (!MsdSkipBucket(b) && state.TryMoveFromMsd())
                 {
                     counts = counts.Sub(0, state.BucketCount);
                     counts.Clear();
@@ -569,11 +459,11 @@ internal static partial class Radix
 
             counts.CopyTo(heads.Sub(1, heads.Length));
             heads.Ref(0) = 0; // clearing
-            PrefixSums(heads);
-            SkaSwap(span, counts, heads, state.BucketCount, in digit);
+            PartialSums(heads);
+            SkaSwap(span, counts, heads, state.BucketCount, in state);
             Span<int> tails = counts; // re-purposed. heads are now invalid.
 
-            if (!state.MoveNext())
+            if (!state.TryMoveFromMsd())
                 return;
 
             int head = 0;
@@ -599,21 +489,22 @@ internal static partial class Radix
             }
         }
 
-        [OverloadTemplate(nameof(T), null, nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span))]
         [SkipLocalsInit]
-        internal static void MsdSort(Span<T> span, int bitWidth, MemoryProfile profile)
+        internal static void MsdSort(Span<T> span, int bitwidth, MemoryProfile profile)
         {
-            Debug.Assert(bitWidth > 0 && bitWidth <= Math.Min(16, Width));
+            Debug.Assert(bitwidth > 0 && bitwidth <= Math.Min(16, Width));
 
             if (span.Length > FallbackSortThreshold)
             {
-                var state = new MsdState((short)Math.Min(bitWidth, Width));
+                var state = State.CreateMsd((short)Math.Min(bitwidth, Width));
+                Span<int> sums = stackalloc int[state.BucketCount + 1];
                 if (profile < MemoryProfile.High) // unstable
-                    MsdSortUnstable(span, stackalloc int[state.BucketCount + 1], state, profile);
+                    MsdSortUnstable(span, sums, state, profile);
                 else
                 {
                     using MemoryOwner<T> owner = new(MemoryPool<T>.Shared.Rent(span.Length));
-                    MsdSortBuffered(span, owner.Memory.Span.Sub(0, span.Length), stackalloc int[state.BucketCount + 1], state, true);
+                    MsdSortBuffered(span, owner.Memory.Span.Sub(0, span.Length), sums, state, true);
                 }
             }
             else if (span.Length > 1)
@@ -621,6 +512,30 @@ internal static partial class Radix
                     FallbackSort(span);
                 else
                     FallbackSortStable(span, profile);
+        }
+
+        internal static partial class From<V, TSelector>
+            where TSelector :
+#if !NET7_0_OR_GREATER
+                unmanaged,
+#endif
+                IKeySelector<V, T>
+        {
+            private static readonly KeySelectorComparer<V, T, TSelector> Comparer = new();
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            static int Compare(ref readonly V a, ref readonly V b) => Comparer.Compare(a, b);
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            static int Extract(ref readonly V value, ref readonly State state)
+            {
+#if NET7_0_OR_GREATER
+                T key = TSelector.Select(in value);
+#else
+                T key = default(TSelector).SelectInst(in value);
+#endif
+                return BInt<T>.Extract(in key, in state);
+            }
         }
     }
 }

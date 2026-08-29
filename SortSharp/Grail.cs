@@ -14,35 +14,46 @@ namespace SortSharp;
 
 public static partial class Extensions
 {
-    /// <inheritdoc cref="GrailSort{T, TComparer}(Span{T}, TComparer, MemoryProfile)" />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="Grail"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/TypeParams/Member[@name="T"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="span"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="profile"]/*' />
+    [ApiTemplate(nameof(T))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void GrailSort<T>(this Span<T> span, MemoryProfile profile = MemoryProfile.Baseline)
         => GrailSort<T, IComparer<T>?>(span, (IComparer<T>?)null, profile);
 
-    /// <inheritdoc cref="GrailSort{T, TComparer}(Span{T}, TComparer, MemoryProfile)" />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="Grail"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/TypeParams/Member[@name="T"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="span"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="comparer"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="profile"]/*' />
+    [ApiTemplate(nameof(T))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void GrailSort<T>(this Span<T> span, IComparer<T>? comparer = null, MemoryProfile profile = MemoryProfile.Baseline)
         => GrailSort<T, IComparer<T>?>(span, comparer, profile);
 
-    /// <inheritdoc cref="GrailSort{T, TComparer}(Span{T}, TComparer, MemoryProfile)" />
-    public static void GrailSort<T>(this Span<T> span, Comparison<T> comparer, MemoryProfile profile = MemoryProfile.Baseline)
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="Grail"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/TypeParams/Member[@name="T"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="span"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="comparison"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="profile"]/*' />
+    [ApiTemplate(nameof(T))]
+    public static void GrailSort<T>(this Span<T> span, Comparison<T> comparison, MemoryProfile profile = MemoryProfile.Baseline)
     {
-        ArgumentNullException.ThrowIfNull(comparer, nameof(comparer));
+        ArgumentNullException.ThrowIfNull(comparison, nameof(comparison));
 
         if (span.Length <= 1)
             return;
-        Grail.Fn<T>.Sort(span, comparer, profile);
+        Grail.Fn<T>.Sort(span, comparison, profile);
     }
 
-    /// <summary>
-    /// Sorts the elements in the span using the <see href="https://github.com/HolyGrailSortProject/Rewritten-Grailsort">GrailSort</see> algorithm,
-    /// which is a <see href="https://en.wikipedia.org/wiki/Sorting_algorithm#Stability">stable</see> block merge sort algorithm.
-    /// </summary>
-    /// <typeparam name="T">The type of elements.</typeparam>
-    /// <typeparam name="TComparer">The type of the comparer.</typeparam>
-    /// <param name="span">The span to sort.</param>
-    /// <param name="comparer">The comparer to use for sorting.</param>
-    /// <param name="profile">The profile to use for allocating temporary cache. A fixed limit is applied with the default profile.</param>
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="Grail"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/TypeParams/Member[@name="T_TComparer"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="span"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="comparer"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="profile"]/*' />
+    [ApiTemplate(nameof(T))]
     public static void GrailSort<T, TComparer>(this Span<T> span, TComparer comparer, MemoryProfile profile = MemoryProfile.Baseline)
         where TComparer : IComparer<T>?
     {
@@ -57,56 +68,9 @@ public static partial class Extensions
         else
             Grail.Cmp<T, IComparer<T>>.Sort(span, (IComparer<T>?)comparer ?? Comparer<T>.Default, profile);
     }
-
-    /// <inheritdoc cref="GrailSort{K, V, TComparer}(Span{K}, Span{V}, TComparer, MemoryProfile)" />
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void GrailSort<K, V>(this Span<K> keys, Span<V> items, MemoryProfile profile = MemoryProfile.Baseline)
-        => GrailSort<K, V, IComparer<K>?>(keys, items, null, profile);
-
-    /// <inheritdoc cref="GrailSort{K, V, TComparer}(Span{K}, Span{V}, TComparer, MemoryProfile)" />
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void GrailSort<K, V>(this Span<K> keys, Span<V> items, IComparer<K>? comparer = null, MemoryProfile profile = MemoryProfile.Baseline)
-        => GrailSort<K, V, IComparer<K>?>(keys, items, comparer, profile);
-
-    /// <inheritdoc cref="GrailSort{K, V, TComparer}(Span{K}, Span{V}, TComparer, MemoryProfile)" />
-    public static void GrailSort<K, V>(this Span<K> keys, Span<V> items, Comparison<K> comparer, MemoryProfile profile = MemoryProfile.Baseline)
-    {
-        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
-        ArgumentNullException.ThrowIfNull(comparer, nameof(comparer));
-
-        if (keys.Length <= 1)
-            return;
-        Grail.Fn<K>.Sort(keys, items, comparer, profile);
-    }
-
-#pragma warning disable CS1573
-    /// <typeparam name="K">The type of the keys.</typeparam>
-    /// <typeparam name="V">The type of the values.</typeparam>
-    /// <typeparam name="TComparer">The type of the comparer for the keys.</typeparam>
-    /// <param name="keys">The span of keys to sort.</param>
-    /// <param name="items">The span of values to sort.</param>
-    /// <param name="comparer">The comparer to use for sorting the keys.</param>
-    /// <inheritdoc cref="GrailSort{T, TComparer}(Span{T}, TComparer, MemoryProfile)" />
-    public static void GrailSort<K, V, TComparer>(this Span<K> keys, Span<V> items, TComparer comparer, MemoryProfile profile = MemoryProfile.Baseline)
-        where TComparer : IComparer<K>?
-    {
-        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
-
-        if (keys.Length <= 1)
-            return;
-        else if (typeof(TComparer).IsValueType)
-#pragma warning disable CS8631
-            Grail.Cmp<K, TComparer>.Sort(keys, items, comparer, profile);
-#pragma warning restore CS8631
-        else if (comparer is null || comparer as IComparer<K> == Comparer<K>.Default)
-            Dispatcher<K>.To.GrailSort(keys, items, profile);
-        else
-            Grail.Cmp<K, IComparer<K>>.Sort(keys, items, (IComparer<K>?)comparer ?? Comparer<K>.Default, profile);
-    }
 }
-#pragma warning restore CS1573
 
-[Sort(Properties = SortProperties.Stable, Disable = DefaultOverloads.IComparisonOperators)]
+[Sort(Properties = SortProperties.Comparison | SortProperties.Stable, Disable = ComparerOverloads.IComparisonOperators)]
 internal static partial class Grail
 {
     private const int StaticExtBufferLen = 512;
@@ -120,6 +84,7 @@ internal static partial class Grail
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static Subarray Flip(Subarray subArray) => (Subarray)(-(sbyte)subArray);
 
+    [TypeArgumentExpansion] // TODO
     private ref struct Context<T>
     {
         public int CurrBlockLen;
@@ -127,14 +92,14 @@ internal static partial class Grail
         public bool IsExtBufferIdeal;
         public Span<T> ExtBuffer;
 
-        [OverloadTemplate(nameof(T), null, nameof(buffer), Disable = DefaultOverloads.KeyValue)]
+        [ImplTemplate(nameof(T), nameof(buffer), KeyValue = OverloadOption.Disable)]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Context<T> FromBuffer(Span<T> buffer) => new()
         {
             ExtBuffer = buffer,
         };
 
-        [OverloadTemplate(nameof(T), null, nameof(buffer), Disable = DefaultOverloads.KeyValue)]
+        [ImplTemplate(nameof(T), nameof(buffer), KeyValue = OverloadOption.Disable)]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly void Destruct(out Span<T> buffer) => buffer = ExtBuffer;
     }
@@ -165,7 +130,7 @@ internal static partial class Grail
     internal sealed partial class Fn<T> : ComparisonOperations.Fn<T>
     {
         // cost: 2 * length + idealKeys^2 / 2
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         static int CollectKeys(Span<T> span, int idealKeys, ref readonly Context<T> context, Comparison<T> comp)
         {
             Debug.Assert(span.Length > 0 && idealKeys > 0);
@@ -183,7 +148,7 @@ internal static partial class Grail
 
                 // The second part of this conditional does the equal check we were just talking about; however,
                 // if currKey is larger than everything in the key-buffer (meaning insertPos == keysFound),
-                // then that also tells us it wasn't *equal* to anything in the key-buffer. Magic! :) 
+                // then that also tells us it wasn't *equal* to anything in the key-buffer. Magic! :)
                 if (insertPos == keysFound ||
                     Compare(in span.Ref(currKey), in span.Ref(firstKey + insertPos), comp) != 0)
                 {
@@ -210,7 +175,7 @@ internal static partial class Grail
             return keysFound;
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         static void PairwiseSwaps(Span<T> span, Comparison<T> comp)
         {
             ref T left = ref span.Ref(2);
@@ -239,7 +204,7 @@ internal static partial class Grail
             }
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         static void PairwiseWrites(Span<T> span, Comparison<T> comp)
         {
             ref T left = ref span.Ref(2);
@@ -269,10 +234,10 @@ internal static partial class Grail
         }
 
         // array[buffer .. start - 1] <=> "scrolling buffer"
-        // 
+        //
         // "scrolling buffer" + array[start, middle - 1] + array[middle, end - 1]
         // --> array[buffer, buffer + end - 1] + "scrolling buffer"
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         static void MergeForwards(Span<T> span, int bufferOffset, int leftLen, Comparison<T> comp)
         {
             ref T buffer = ref span.Ref(0);
@@ -303,7 +268,7 @@ internal static partial class Grail
         }
 
         // credit to 666666t for thorough bug-checking/fixing
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         static void MergeBackwards(Span<T> span, int leftLen, int bufferOffset, Comparison<T> comp)
         {
             ref T last = ref span.Ref(-1);
@@ -337,7 +302,7 @@ internal static partial class Grail
         //
         // cost: min(leftLen, rightLen)^2 + max(leftLen, rightLen)
         // MINOR CHANGES: better naming -- 'insertPos' is now 'mergeLen' -- and "middle"/"end" calculations simplified
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         static void MergeLazy(Span<T> span, int middle, ref readonly Context<T> context, Comparison<T> comp)
         {
             context.Destruct(out Span<T> extBuffer);
@@ -395,13 +360,13 @@ internal static partial class Grail
             }
         }
 
-        // array[buffer .. start - 1] <=> "free space"    
+        // array[buffer .. start - 1] <=> "free space"
         //
         // "free space" + array[start, middle - 1] + array[middle, end - 1]
         // --> array[buffer, buffer + end - 1] + "free space"
         //
         // FUNCTION RENAMED: More consistent with "out-of-place" being at the end
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         static void MergeOutOfPlace(Span<T> span, int bufferOffset, int leftLen, Comparison<T> comp)
         {
             ref T buffer = ref span.Ref(0);
@@ -431,7 +396,7 @@ internal static partial class Grail
             }
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         static void BuildInPlace(Span<T> span, int start, int currentLen, int bufferLen, ref readonly Context<T> context, Comparison<T> comp)
         {
             int length = span.Length - start - currentLen;
@@ -474,7 +439,7 @@ internal static partial class Grail
                 MergeBackwards(span.Sub(mergeIndex, mergeIndex + bufferLen * 3), bufferLen, bufferLen, comp);
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         static void BuildOutOfPlace(Span<T> span, int start, int bufferLen, ref readonly Context<T> context, Comparison<T> comp)
         {
             int extLen = bufferLen < context.ExtBuffer.Length
@@ -519,7 +484,7 @@ internal static partial class Grail
         // build blocks of length 'bufferLen'
         // input: [start - mergeLen, start - 1] elements are buffer
         // output: first 'bufferLen' elements are buffer, blocks (2 * bufferLen) and last subblock sorted
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         static void BuildBlocks(Span<T> span, int start, int bufferLen, ref readonly Context<T> context, Comparison<T> comp)
         {
             if (context.IsExtBufferIdeal && !context.ExtBuffer.IsEmpty)
@@ -536,7 +501,7 @@ internal static partial class Grail
 
         // Returns the final position of 'medianKey'.
         // MINOR CHANGES: Change comparison order to emphasize "less-than" relation; fewer variables (Credit to Anonymous0726 for better variable names!)
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         static int BlockSelectSort(Span<T> span, int start, int medianKey, int blockCount, int blockLen, Comparison<T> comp)
         {
             for (int firstBlock = 0; firstBlock < blockCount; firstBlock++)
@@ -580,7 +545,7 @@ internal static partial class Grail
     // OFF-BY-ONE BUG FIXED: used to be `int index = start + resetLen`; credit to 666666t for debugging
     // RESTRUCTED, BETTER NAMES: 'resetLen' is now 'length' and 'bufferLen' is now 'bufferOffset'
     // SWAPPED NAMES: 'buffer' is now 'index' and vice versa
-    [OverloadTemplate(nameof(T), null)]
+    [ImplTemplate(nameof(T))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     static void InPlaceBufferReset<T>(Span<T> span, int start, int bufferOffset)
     {
@@ -595,7 +560,7 @@ internal static partial class Grail
     // OFF-BY-ONE BUG FIXED: used to be `int index = start + resetLen`; credit to 666666t for debugging
     // RESTRUCTED, BETTER NAMES: 'resetLen' is now 'length' and 'bufferLen' is now 'bufferOffset'
     // SWAPPED NAMES: 'buffer' is now 'index' and vice versa
-    [OverloadTemplate(nameof(T), null)]
+    [ImplTemplate(nameof(T))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     static void OutOfPlaceBufferReset<T>(Span<T> span, int start, int bufferOffset)
     {
@@ -604,11 +569,11 @@ internal static partial class Grail
 
     // Rewinds Grailsort's "scrolling buffer" to the left of any items belonging to the left subarray block
     // left over by a "smart merge". This is used to continue an ongoing merge that has run out of buffer space.
-    // Costs O(sqrt n) swaps in the *absolute* worst-case. 
+    // Costs O(sqrt n) swaps in the *absolute* worst-case.
     //
     // BETTER ORDER-OF-OPERATIONS, NAMING IMPROVED: the left over items (now called 'leftBlock') are in the
     //                                              middle of the merge while the buffer is at the end
-    [OverloadTemplate(nameof(T), null)]
+    [ImplTemplate(nameof(T))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     static void InPlaceBufferRewind<T>(Span<T> span, int leftBlock)
     {
@@ -621,7 +586,7 @@ internal static partial class Grail
     //
     // BETTER ORDER, INCORRECT ORDER OF PARAMETERS BUG FIXED: `leftOvers` (now called 'leftBlock') should be
     //                                                        the middle, and `buffer` should be the end
-    [OverloadTemplate(nameof(T), null)]
+    [ImplTemplate(nameof(T))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     static void OutOfPlaceBufferRewind<T>(Span<T> span, int leftBlock)
     {
@@ -630,7 +595,7 @@ internal static partial class Grail
 
     partial class Fn<T>
     {
-        [OverloadTemplate(nameof(T), nameof(comp))]
+        [ImplTemplate(nameof(T), Comparer = nameof(comp))]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static Subarray GetSubarray(ref readonly T currentKey, ref readonly T medianKey, Comparison<T> comp)
         {
@@ -638,7 +603,7 @@ internal static partial class Grail
         }
 
         // FUNCTION RE-RENAMED: last/final left blocks are used to calculate the length of the final merge
-        [OverloadTemplate(nameof(T), nameof(comp))]
+        [ImplTemplate(nameof(T), Comparer = nameof(comp))]
         static int CountLastMergeBlocks(ReadOnlySpan<T> span, int blockCount, int blockLen, Comparison<T> comp)
         {
             int blocksToMerge = 0;
@@ -655,7 +620,7 @@ internal static partial class Grail
             return blocksToMerge;
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         static void SmartMerge(Span<T> span, int bufferOffset, int leftLen, Subarray leftOrigin, ref Context<T> context, Comparison<T> comp)
         {
             ref T buffer = ref span.Ref(0);
@@ -713,7 +678,7 @@ internal static partial class Grail
         }
 
         // MINOR CHANGE: better naming -- 'insertPos' is now 'mergeLen' -- and "middle" calculation simplified
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         static void SmartMergeLazy(Span<T> span, int middle, Subarray leftOrigin, ref Context<T> context, Comparison<T> comp)
         {
             int start = 0;
@@ -779,7 +744,7 @@ internal static partial class Grail
         }
 
         // FUNCTION RENAMED: more consistent with other "out-of-place" merges
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         static void SmartMergeOutOfPlace(Span<T> span, int bufferOffset, int leftLen, Subarray leftOrigin, ref Context<T> context, Comparison<T> comp)
         {
             ref T buffer = ref span.Ref(0);
@@ -839,7 +804,7 @@ internal static partial class Grail
 
         // Credit to Anonymous0726 for better variable names such as "nextBlock"
         // Also minor change: removed unnecessary "currBlock = nextBlock" lines
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         static void MergeBlocks(Span<T> span, int start, int medianKey, int blockCount, int blockLen, int lastMergeBlocks, int lastLen, ref Context<T> context, Comparison<T> comp)
         {
             int buffer;
@@ -893,7 +858,7 @@ internal static partial class Grail
             }
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         static void MergeBlocksLazy(Span<T> span, int start, int medianKey, int blockCount, int blockLen, int lastMergeBlocks, int lastLen, ref Context<T> context, Comparison<T> comp)
         {
             int currBlock;
@@ -938,7 +903,7 @@ internal static partial class Grail
             }
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         static void MergeBlocksOutOfPlace(Span<T> span, int start, int medianKey, int blockCount, int blockLen, int lastMergeBlocks, int lastLen, ref Context<T> context, Comparison<T> comp)
         {
             int buffer;
@@ -993,7 +958,7 @@ internal static partial class Grail
         }
 
         //TODO: Double-check "Merge Blocks" arguments
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         static void CombineInPlace(Span<T> span, int start, int subarrayLen, int blockLen, int mergeCount, int lastSubarrays, bool buffer, ref Context<T> context, Comparison<T> comp)
         {
             int fullMerge = 2 * subarrayLen;
@@ -1062,7 +1027,7 @@ internal static partial class Grail
                 InPlaceBufferReset(span, start, blockLen);
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         static void CombineOutOfPlace(Span<T> span, int start, int subarrayLen, int blockLen, int mergeCount, int lastSubarrays, ref Context<T> context, Comparison<T> comp)
         {
             context.Destruct(out Span<T> extBuffer);
@@ -1133,7 +1098,7 @@ internal static partial class Grail
         //
         //                   *Please also check everything surrounding 'if(lastSubarrays != 0)' inside
         //                   'combine in-/out-of-place' methods for other renames!!*
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         static void CombineBlocks(Span<T> span, int start, int subarrayLen, int blockLen, bool buffer, ref Context<T> context, Comparison<T> comp)
         {
             int length = span.Length - start;
@@ -1155,7 +1120,7 @@ internal static partial class Grail
                 CombineInPlace(span.Sub(0, start + length), start, subarrayLen, blockLen, mergeCount, lastSubarrays, buffer, ref context, comp);
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         static void StableSortLazy(Span<T> span, ref readonly Context<T> context, Comparison<T> comp)
         {
             ref T right = ref span.Ref(1);
@@ -1180,7 +1145,7 @@ internal static partial class Grail
             }
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span), nameof(extBuffer))]
+        [ImplTemplate(nameof(T), nameof(span), nameof(extBuffer), Comparer = nameof(comp))]
         static void SortLoop(Span<T> span, Span<T> extBuffer, Comparison<T> comp)
         {
             // find the smallest power of two greater than or equal to
@@ -1281,7 +1246,7 @@ internal static partial class Grail
             MergeLazy(span, bufferEnd, in context, comp);
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         [SkipLocalsInit]
         public static unsafe void Sort(Span<T> span, Comparison<T> comp, MemoryProfile profile)
         {
@@ -1300,7 +1265,8 @@ internal static partial class Grail
                 if (profile < MemoryProfile.Medium || cacheSize <= StaticExtBufferLen)
                 {
                     using MemoryOwner<T> owner = new();
-                    Span<T> cache = RuntimeHelpers.IsReferenceOrContainsReferences<T>() || (nint)Unsafe.SizeOf<T>() * StaticExtBufferLen <= MaxStackAllocSize
+                    bool stack = CanStackAlloc<T>(StaticExtBufferLen);
+                    Span<T> cache = RuntimeHelpers.IsReferenceOrContainsReferences<T>() || !stack
                         ? owner.Attach(MemoryPool<T>.Shared.Rent(StaticExtBufferLen)).Memory.Span
                         : new Span<T>(
                             Unsafe.AsPointer(ref MemoryMarshal.GetReference(stackalloc byte[Unsafe.SizeOf<T>() * StaticExtBufferLen])),

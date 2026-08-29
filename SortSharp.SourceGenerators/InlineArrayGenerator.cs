@@ -8,6 +8,8 @@ namespace SortSharp.SourceGenerators;
 [Generator]
 internal sealed class InlineArrayGenerator : IIncrementalGenerator
 {
+    internal const string CopyMethodName = "CopyToFill";
+
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         var create = context.CompilationProvider
@@ -35,7 +37,7 @@ internal sealed class InlineArrayGenerator : IIncrementalGenerator
                 {
                     return Diagnostic.Create(
                         new DiagnosticDescriptor(
-                            "IA001",
+                            "IAG001",
                             "Inline array struct must have no instance fields",
                             "Inline array struct '{0}' must have no instance fields",
                             nameof(InlineArrayGenerator),
@@ -58,7 +60,7 @@ internal sealed class InlineArrayGenerator : IIncrementalGenerator
                         .. Enumerable.Range(0, length).Select(i => F.FieldDeclaration(
                             F.VariableDeclaration(F.IdentifierName(type))
                                 .WithVariables([F.VariableDeclarator(F.Identifier($"item{i}"))]))),
-                        GetRefMethod(type, "item0"),
+                        GetIndexerMethod(type, "item0"),
                         GetCopyMethod(type, create
                             ? F.Block(
                                 F.ParseStatement($"global::System.Diagnostics.Debug.Assert(span.Length <= {length});"),
@@ -121,22 +123,25 @@ internal sealed class InlineArrayGenerator : IIncrementalGenerator
         });
     }
 
-    private static MemberDeclarationSyntax GetRefMethod(string type, string element)
-        => F.MethodDeclaration(F.RefType(F.ParseTypeName(type)), "Ref")
-            .WithAttributeLists([F.AttributeList([
-                F.Attribute(F.ParseName("global::System.Diagnostics.CodeAnalysis.UnscopedRefAttribute")),
-                F.Attribute(F.ParseName("global::System.Runtime.CompilerServices.MethodImplAttribute"))
-                    .WithArgumentList(F.AttributeArgumentList([
-                        F.AttributeArgument(F.ParseExpression("global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining"))]))])])
+    private static MemberDeclarationSyntax GetIndexerMethod(string type, string element)
+        => F.IndexerDeclaration(F.RefType(F.ParseTypeName(type)))
             .WithModifiers([F.Token(SyntaxKind.PublicKeyword)])
-            .WithParameterList(F.ParameterList([
+            .WithParameterList(F.BracketedParameterList([
                 F.Parameter(F.Identifier("i")).WithType(F.PredefinedType(F.Token(SyntaxKind.IntKeyword)))]))
-            .WithExpressionBody(F.ArrowExpressionClause(
-                F.ParseExpression($"ref global::System.Runtime.CompilerServices.Unsafe.Add(ref {element}, i)")))
-            .WithSemicolonToken(F.Token(SyntaxKind.SemicolonToken));
+            .WithAccessorList(F.AccessorList([
+                F.AccessorDeclaration(SyntaxKind.GetAccessorDeclaration,
+                [F.AttributeList([
+                    F.Attribute(F.ParseName("global::System.Diagnostics.CodeAnalysis.UnscopedRefAttribute")),
+                    F.Attribute(F.ParseName("global::System.Runtime.CompilerServices.MethodImplAttribute"))
+                        .WithArgumentList(F.AttributeArgumentList([
+                            F.AttributeArgument(F.ParseExpression("global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining"))]))])],
+                [],
+                F.ArrowExpressionClause(F.ParseExpression($"ref global::System.Runtime.CompilerServices.Unsafe.Add(ref {element}, i)")))
+                .WithSemicolonToken(F.Token(SyntaxKind.SemicolonToken))
+            ]));
 
     private static MemberDeclarationSyntax GetCopyMethod(string type, BlockSyntax body)
-        => F.MethodDeclaration(F.ParseTypeName("void"), "CopyToFill")
+        => F.MethodDeclaration(F.ParseTypeName("void"), CopyMethodName)
             .WithAttributeLists([F.AttributeList([
                 F.Attribute(F.ParseName("global::System.Runtime.CompilerServices.MethodImplAttribute"))
                     .WithArgumentList(F.AttributeArgumentList([

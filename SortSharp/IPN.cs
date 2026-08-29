@@ -14,7 +14,10 @@ namespace SortSharp;
 public static partial class Extensions
 {
 #if NET7_0_OR_GREATER
-    /// <inheritdoc cref="IPNSort{T, TComparer}(Span{T}, TComparer)" />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="IPN"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/TypeParams/Member[@name="T"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="span"]/*' />
+    [ApiTemplate(nameof(T))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void IPNSort<T>(this Span<T> span)
         where T : unmanaged, INumber<T>
@@ -28,29 +31,34 @@ public static partial class Extensions
     }
 #endif
 
-    /// <inheritdoc cref="IPNSort{T, TComparer}(Span{T}, TComparer)" />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="IPN"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/TypeParams/Member[@name="T"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="span"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="comparer"]/*' />
+    [ApiTemplate(nameof(T))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void IPNSort<T>(this Span<T> span, IComparer<T>? comparer = null)
         => IPNSort<T, IComparer<T>?>(span, comparer);
 
-    /// <inheritdoc cref="IPNSort{T, TComparer}(Span{T}, TComparer)" />
-    public static void IPNSort<T>(this Span<T> span, Comparison<T> comparer)
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="IPN"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/TypeParams/Member[@name="T"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="span"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="comparison"]/*' />
+    [ApiTemplate(nameof(T))]
+    public static void IPNSort<T>(this Span<T> span, Comparison<T> comparison)
     {
-        ArgumentNullException.ThrowIfNull(comparer, nameof(comparer));
+        ArgumentNullException.ThrowIfNull(comparison, nameof(comparison));
         if (span.Length <= 1)
             return;
 
-        IPN.Fn<T>.Sort(span, comparer);
+        IPN.Fn<T>.Sort(span, comparison);
     }
 
-    /// <summary>
-    /// Sorts the elements in the span using the <see href="https://github.com/Voultapher/sort-research-rs/blob/main/writeup/ipnsort_introduction/text.md">Instruction-Parallel-Network Sort</see> algorithm.
-    /// Branchless partitioning will be used if the element type is unmanaged and implements <see cref="INumber{TSelf}"/>.
-    /// </summary>
-    /// <typeparam name="T">The type of elements.</typeparam>
-    /// <typeparam name="TComparer">The type of the comparer.</typeparam>
-    /// <param name="span">The span to sort.</param>
-    /// <param name="comparer">The comparer to use for sorting.</param>
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="IPN"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/TypeParams/Member[@name="T_TComparer"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="span"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="comparer"]/*' />
+    [ApiTemplate(nameof(T))]
     public static void IPNSort<T, TComparer>(this Span<T> span, TComparer comparer)
         where TComparer : IComparer<T>?
     {
@@ -65,67 +73,9 @@ public static partial class Extensions
         else
             IPN.Cmp<T, IComparer<T>>.Sort(span, comparer);
     }
-
-#if NET7_0_OR_GREATER
-    /// <inheritdoc cref="IPNSort{K, V, TComparer}(Span{K}, Span{V}, TComparer)" />
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void IPNSort<K, V>(this Span<K> keys, Span<V> items)
-        where K : unmanaged, INumber<K>
-    {
-        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
-
-        if (keys.Length <= 1)
-            return;
-        else if (Dispatcher<K>.IsFloatingPointIeee)
-            Dispatcher<K>.To.IPNSort(keys, items);
-        else
-            IPN.Op<K>.Sort(keys, items);
-    }
-#endif
-
-    /// <inheritdoc cref="IPNSort{K, V, TComparer}(Span{K}, Span{V}, TComparer)" />
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void IPNSort<K, V>(this Span<K> keys, Span<V> items, IComparer<K>? comparer = null)
-        => IPNSort<K, V, IComparer<K>?>(keys, items, comparer);
-
-    /// <inheritdoc cref="IPNSort{K, V, TComparer}(Span{K}, Span{V}, TComparer)" />
-    public static void IPNSort<K, V>(this Span<K> keys, Span<V> items, Comparison<K> comparer)
-    {
-        ArgumentNullException.ThrowIfNull(comparer, nameof(comparer));
-        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
-
-        if (keys.Length <= 1)
-            return;
-        IPN.Fn<K>.Sort(keys, items, comparer);
-    }
-
-    /// <typeparam name="K">The type of the keys.</typeparam>
-    /// <typeparam name="V">The type of the values.</typeparam>
-    /// <typeparam name="TComparer">The type of the comparer for the keys.</typeparam>
-    /// <param name="keys">The span of keys to sort.</param>
-    /// <param name="items">The span of values to sort.</param>
-    /// <param name="comparer">The comparer to use for sorting the keys.</param>
-    /// <inheritdoc cref="IPNSort{T, TComparer}(Span{T}, TComparer)" />
-    public static void IPNSort<K, V, TComparer>(this Span<K> keys, Span<V> items, TComparer comparer)
-        where TComparer : IComparer<K>?
-    {
-        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
-
-        if (keys.Length <= 1)
-            return;
-        else if (typeof(TComparer).IsValueType)
-#pragma warning disable CS8631
-            IPN.Cmp<K, TComparer>.Sort(keys, items, comparer);
-#pragma warning restore CS8631
-        else if (comparer is null || comparer as IComparer<K> == Comparer<K>.Default)
-            Dispatcher<K>.To.IPNSort(keys, items);
-        else
-            IPN.Cmp<K, IComparer<K>>.Sort(keys, items, (IComparer<K>?)comparer ?? Comparer<K>.Default);
-    }
 }
 
-/// <remarks><see href="https://github.com/Voultapher/sort-research-rs/tree/main/ipnsort/src" /></remarks>
-[Sort]
+[Sort(Properties = SortProperties.Comparison)]
 internal static partial class IPN
 {
     /// Optimal number of comparisons, and good perf.
@@ -165,12 +115,12 @@ internal static partial class IPN
 
     internal sealed partial class Fn<T> : ComparisonOperations.Fn<T>
     {
-        [OverloadTemplate(nameof(T), "comp", Disable = DefaultOverloads.IComparisonOperators)]
+        [ImplTemplate(nameof(T), Comparer = "comp", Disable = ComparerOverloads.IComparisonOperators)]
         static int SmallSortThreshold() => Unsafe.SizeOf<T>() * SmallSortGeneralScratchLen > MaxStackArraySize
             ? SmallSortFallbackThreshold
             : SmallSortGeneralThreshold;
 
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span), Disable = DefaultOverloads.IComparisonOperators)]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp), Disable = ComparerOverloads.IComparisonOperators)]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void SmallSort(Span<T> span, Comparison<T> comp)
         {
@@ -191,7 +141,7 @@ internal static partial class IPN
 #if NET8_0_OR_GREATER
             ref T scr = ref ((Span<T>)scratch).Ref(0);
 #else
-            ref T scr = ref scratch.Ref(0);
+            ref T scr = ref scratch[0];
 #endif
 
             int sorted;
@@ -248,7 +198,7 @@ internal static partial class IPN
         }
 
         /// Sorts range [begin, tail] assuming [begin, tail) is already sorted.
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(head), Disable = DefaultOverloads.IComparisonOperators)]
+        [ImplTemplate(nameof(T), nameof(head), Comparer = nameof(comp), Disable = ComparerOverloads.IComparisonOperators)]
         static void InsertTail(ref T head, int offset, Comparison<T> comp)
         {
             Debug.Assert(offset > 0);
@@ -277,7 +227,7 @@ internal static partial class IPN
             }
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(src), nameof(dst), Disable = DefaultOverloads.IComparisonOperators)]
+        [ImplTemplate(nameof(T), nameof(src), nameof(dst), Comparer = nameof(comp), Disable = ComparerOverloads.IComparisonOperators)]
         static void Sort4(ref readonly T src, ref T dst, Comparison<T> comp)
         {
             // By limiting select to picking pointers, we are guaranteed good cmov code-gen
@@ -317,7 +267,7 @@ internal static partial class IPN
             Unsafe.Add(ref dst, 3) = max;
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(src), nameof(dst), nameof(scratch), Disable = DefaultOverloads.IComparisonOperators)]
+        [ImplTemplate(nameof(T), nameof(src), nameof(dst), nameof(scratch), Comparer = nameof(comp), Disable = ComparerOverloads.IComparisonOperators)]
         static void Sort8(ref readonly T src, ref T dst, ref T scratch, Comparison<T> comp)
         {
             Sort4(in src, ref scratch, comp);
@@ -330,7 +280,7 @@ internal static partial class IPN
         /// Original idea for bi-directional merging by Igor van den Hoven (quadsort),
         /// adapted to only use merge up and down. In contrast to the original
         /// parity_merge function, it performs 2 writes instead of 4 per iteration.
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(src), nameof(dst))]
+        [ImplTemplate(nameof(T), nameof(src), nameof(dst), Comparer = nameof(comp))]
         internal static void MergeBidirectional(ref readonly T src, ref T dst/*, int split*/, int length, Comparison<T> comp)
         {
             // It helps to visualize the merge:
@@ -416,7 +366,7 @@ internal static partial class IPN
     {
         static int SmallSortThreshold() => SmallSortNetworkThreshold;
 
-        [OverloadTemplate(nameof(T), null, nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span))]
         static void SmallSort(Span<T> span)
         {
             // This implementation is tuned to be efficient for integer types.
@@ -462,7 +412,7 @@ internal static partial class IPN
 #if NET8_0_OR_GREATER
             ref T scr = ref ((Span<T>)scratch).Ref(0);
 #else
-            ref T scr = ref scratch.Ref(0);
+            ref T scr = ref scratch[0];
 #endif
 
             MergeBidirectional(in first, ref scr, span.Length);
@@ -476,7 +426,7 @@ internal static partial class IPN
 
         // Never inline this function to avoid code bloat. It still optimizes nicely and has practically no
         // performance impact.
-        [OverloadTemplate(nameof(T), null, nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span))]
         static void Sort9U(Span<T> span)
         {
             Debug.Assert(span.Length >= 9);
@@ -511,7 +461,7 @@ internal static partial class IPN
 
         // Never inline this function to avoid code bloat. It still optimizes nicely and has practically no
         // performance impact.
-        [OverloadTemplate(nameof(T), null, nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span))]
         static void Sort13U(Span<T> span)
         {
             Debug.Assert(span.Length >= 13);
@@ -574,7 +524,7 @@ internal static partial class IPN
         ///
         /// This chooses a pivot by sampling an adaptive amount of points, approximating
         /// the quality of a median of sqrt(n) elements.
-        [OverloadTemplate(nameof(T), nameof(comp))]
+        [ImplTemplate(nameof(T), Comparer = nameof(comp))]
         static int ChoosePivot(ReadOnlySpan<T> span, Comparison<T> comp)
         {
             int len = span.Length;
@@ -599,7 +549,7 @@ internal static partial class IPN
         ///
         /// SAFETY: a, b, c must point to the start of initialized regions of memory of
         /// at least n elements.
-        [OverloadTemplate(nameof(T), nameof(comp))]
+        [ImplTemplate(nameof(T), Comparer = nameof(comp))]
         static ref readonly T Median3Rec(ref readonly T a, ref readonly T b, ref readonly T c, int n, Comparison<T> comp)
         {
             // SAFETY: a, b, c still point to initialized regions of n / 8 elements,
@@ -617,7 +567,7 @@ internal static partial class IPN
         /// Calculates the median of 3 elements.
         ///
         /// SAFETY: a, b, c must be valid initialized elements.
-        [OverloadTemplate(nameof(T), nameof(comp))]
+        [ImplTemplate(nameof(T), Comparer = nameof(comp))]
         static ref readonly T Median3(ref readonly T a, ref readonly T b, ref readonly T c, Comparison<T> comp)
         {
             var x = Less(in a, in b, comp);
@@ -631,7 +581,7 @@ internal static partial class IPN
                 return ref a;
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         static void QuickSort(Span<T> span, [AllowNull] ref readonly T pivotAncestor, int limit, Comparison<T> comp)
         {
             while (true)
@@ -663,7 +613,7 @@ internal static partial class IPN
                 {
                     if (!Less(in pivotAncestor!, in span.Ref(p), comp))
                     {
-                        numLT = PartitionLE(span, p, comp);
+                        numLT = Partition(span, p, comp, true);
                         // Continue sorting elements greater than the pivot. We know that `num_lt` contains
                         // the pivot. So we can continue after `num_lt`.
                         span = span.Sub(numLT + 1, span.Length);
@@ -673,7 +623,7 @@ internal static partial class IPN
                 }
 
                 // Partition the slice.
-                numLT = Partition(span, p, comp);
+                numLT = Partition(span, p, comp, false);
                 Debug.Assert(numLT < span.Length);
 
                 // Recurse into the left side. We have a fixed recursion limit, testing shows no real
@@ -709,13 +659,13 @@ internal static partial class IPN
 
     partial class Op<T>
     {
-        [OverloadTemplate(nameof(T), null, nameof(span), Enable = OptionalOverloads.LessThanOrEqual)]
+        [ImplTemplate(nameof(T), nameof(span))]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static int Partition(Span<T> span, int p)
+        static int Partition(Span<T> span, int p, bool lessThanOrEqual)
         {
             // Place the pivot at the beginning of slice.
             Swap(ref span.Ref(0), ref span.Ref(p));
-            int numLT = PartitionLomutoBranchlessCyclic(span.Sub(1, span.Length), in span.Ref(0));
+            int numLT = PartitionLomutoBranchlessCyclic(span.Sub(1, span.Length), in span.Ref(0), lessThanOrEqual);
             Swap(ref span.Ref(0), ref span.Ref(numLT));
             return numLT;
         }
@@ -723,21 +673,21 @@ internal static partial class IPN
 
     partial class Fn<T>
     {
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span), Disable = DefaultOverloads.IComparisonOperators, Enable = OptionalOverloads.LessThanOrEqual)]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp), Disable = ComparerOverloads.IComparisonOperators)]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static int Partition(Span<T> span, int p, Comparison<T> comp)
+        static int Partition(Span<T> span, int p, Comparison<T> comp, bool lessThanOrEqual)
         {
             // Place the pivot at the beginning of slice.
             Swap(ref span.Ref(0), ref span.Ref(p));
             int numLT = TypeTraits<T>.UseBranchlessPartition
-                ? PartitionLomutoBranchlessCyclic(span.Sub(1, span.Length), in span.Ref(0), comp)
-                : PartitionHoareBranchyCyclic(span.Sub(1, span.Length), in span.Ref(0), comp);
+                ? PartitionLomutoBranchlessCyclic(span.Sub(1, span.Length), in span.Ref(0), comp, lessThanOrEqual)
+                : PartitionHoareBranchyCyclic(span.Sub(1, span.Length), in span.Ref(0), comp, lessThanOrEqual);
             Swap(ref span.Ref(0), ref span.Ref(numLT));
             return numLT;
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span), Disable = DefaultOverloads.IComparisonOperators, Enable = OptionalOverloads.LessThanOrEqual)]
-        static int PartitionHoareBranchyCyclic(Span<T> span, ref readonly T pivot, Comparison<T> comp)
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp), Disable = ComparerOverloads.IComparisonOperators)]
+        static int PartitionHoareBranchyCyclic(Span<T> span, ref readonly T pivot, Comparison<T> comp, bool lessThanOrEqual)
         {
             if (span.Length == 0)
                 return 0;
@@ -755,34 +705,57 @@ internal static partial class IPN
             T tmp = default!;
             try
             {
-                while (true)
-                {
-                    // Find the first element greater than the pivot.
-                    while (Unsafe.IsAddressLessThan(in left, in right) && Less(in left, in pivot, comp))
+                if (!lessThanOrEqual)
+                    while (true)
+                    {
+                        // Find the first element greater than the pivot.
+                        while (Unsafe.IsAddressLessThan(in left, in right) && Less(in left, in pivot, comp))
+                            left = ref Unsafe.Inc(ref left);
+
+                        // Find the last element equal to the pivot.
+                        do right = ref Unsafe.Dec(ref right);
+                        while (Unsafe.IsAddressLessThan(in left, in right) && !Less(in right, in pivot, comp));
+
+                        if (!Unsafe.IsAddressLessThan(in left, in right))
+                            break;
+
+                        // Swap the found pair of out-of-order elements via cyclic permutation.
+                        if (Unsafe.IsNullRef(ref gap))
+                        {
+                            tmp = left;
+                            gap = ref right;
+                        }
+                        // Single place where we instantiate ptr::copy_nonoverlapping in the partition.
+                        else
+                        {
+                            gap = left;
+                            gap = ref right;
+                        }
+                        left = right;
                         left = ref Unsafe.Inc(ref left);
-
-                    // Find the last element equal to the pivot.
-                    do right = ref Unsafe.Dec(ref right);
-                    while (Unsafe.IsAddressLessThan(in left, in right) && !Less(in right, in pivot, comp));
-
-                    if (!Unsafe.IsAddressLessThan(in left, in right))
-                        break;
-
-                    // Swap the found pair of out-of-order elements via cyclic permutation.
-                    if (Unsafe.IsNullRef(ref gap))
-                    {
-                        tmp = left;
-                        gap = ref right;
                     }
-                    // Single place where we instantiate ptr::copy_nonoverlapping in the partition.
-                    else
+                else // <= variant
+                    while (true)
                     {
-                        gap = left;
-                        gap = ref right;
+                        while (Unsafe.IsAddressLessThan(in left, in right) && !Less(in pivot, in left, comp))
+                            left = ref Unsafe.Inc(ref left);
+                        do right = ref Unsafe.Dec(ref right);
+                        while (Unsafe.IsAddressLessThan(in left, in right) && Less(in pivot, in right, comp));
+                        if (!Unsafe.IsAddressLessThan(in left, in right))
+                            break;
+                        if (Unsafe.IsNullRef(ref gap))
+                        {
+                            tmp = left;
+                            gap = ref right;
+                        }
+                        else
+                        {
+                            gap = left;
+                            gap = ref right;
+                        }
+                        left = right;
+                        left = ref Unsafe.Inc(ref left);
                     }
-                    left = right;
-                    left = ref Unsafe.Inc(ref left);
-                }
 
                 return span.Offset(in left);
             }
@@ -795,8 +768,8 @@ internal static partial class IPN
             }
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span), Enable = OptionalOverloads.LessThanOrEqual)]
-        static int PartitionLomutoBranchlessCyclic(Span<T> span, ref readonly T pivot, Comparison<T> comp)
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
+        static int PartitionLomutoBranchlessCyclic(Span<T> span, ref readonly T pivot, Comparison<T> comp, bool lessThanOrEqual)
         {
             // Novel partition implementation by Lukas Bergdoll and Orson Peters. Branchless Lomuto
             // partition paired with a cyclic permutation. TODO link writeup.
@@ -815,21 +788,43 @@ internal static partial class IPN
             T tmp = left;
             try
             {
-                while (Unsafe.IsAddressLessThan(in right, in last))
+                if (!lessThanOrEqual)
                 {
-                    bool less = Less(in right, in pivot, comp);
-                    gap = left;
-                    left = right;
-                    gap = ref right;
-                    left = ref Unsafe.Add(ref left, less ? 1 : 0);
-                    right = ref Unsafe.Inc(ref right);
-                }
+                    while (Unsafe.IsAddressLessThan(in right, in last))
+                    {
+                        bool less = Less(in right, in pivot, comp);
+                        gap = left;
+                        left = right;
+                        gap = ref right;
+                        left = ref Unsafe.Add(ref left, less ? 1 : 0);
+                        right = ref Unsafe.Inc(ref right);
+                    }
 
-                {
-                    bool less = Less(in tmp, in pivot, comp);
-                    gap = left;
-                    left = tmp;
-                    left = ref Unsafe.Add(ref left, less ? 1 : 0);
+                    {
+                        bool less = Less(in tmp, in pivot, comp);
+                        gap = left;
+                        left = tmp;
+                        left = ref Unsafe.Add(ref left, less ? 1 : 0);
+                    }
+                }
+                else // <= variant
+                    {
+                    while (Unsafe.IsAddressLessThan(in right, in last))
+                    {
+                        bool less = !Less(in pivot, in right, comp);
+                        gap = left;
+                        left = right;
+                        gap = ref right;
+                        left = ref Unsafe.Add(ref left, less ? 1 : 0);
+                        right = ref Unsafe.Inc(ref right);
+                    }
+
+                    {
+                        bool less = !Less(in pivot, in tmp, comp);
+                        gap = left;
+                        left = tmp;
+                        left = ref Unsafe.Add(ref left, less ? 1 : 0);
+                    }
                 }
             }
             catch
@@ -841,7 +836,7 @@ internal static partial class IPN
             return span.Offset(in left);
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Sort(Span<T> span, Comparison<T> comp)
         {
@@ -862,14 +857,14 @@ internal static partial class IPN
             // Limit the number of imbalanced partitions to `2 * floor(log2(len))`.
             // The binary OR by one is used to eliminate the zero-check in the logarithm.
             int limit = 2 * BitOperations.Log2((uint)span.Length);
-            QuickSort(span, in Unsafe.NullRef<T>(), limit, comp); // 
+            QuickSort(span, in Unsafe.NullRef<T>(), limit, comp); //
         }
 
         /// Finds a run of sorted elements starting at the beginning of the slice.
         ///
         /// Returns the length of the run, and a bool that is false when the run
         /// is ascending, and true if the run strictly descending.
-        [OverloadTemplate(nameof(T), nameof(comp))]
+        [ImplTemplate(nameof(T), Comparer = nameof(comp))]
         static (int, bool) FindExisitingRun(Span<T> span, Comparison<T> comp)
         {
             int run = 2;

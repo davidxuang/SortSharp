@@ -15,35 +15,46 @@ namespace SortSharp;
 
 public static partial class Extensions
 {
-    /// <inheritdoc cref="WikiSort{T, TComparer}(Span{T}, TComparer, MemoryProfile)" />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="Wiki"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/TypeParams/Member[@name="T"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="span"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="profile"]/*' />
+    [ApiTemplate(nameof(T))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void WikiSort<T>(this Span<T> span, MemoryProfile profile = MemoryProfile.Baseline)
         => WikiSort<T, IComparer<T>?>(span, (IComparer<T>?)null, profile);
 
-    /// <inheritdoc cref="WikiSort{T, TComparer}(Span{T}, TComparer, MemoryProfile)" />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="Wiki"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/TypeParams/Member[@name="T"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="span"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="comparer"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="profile"]/*' />
+    [ApiTemplate(nameof(T))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void WikiSort<T>(this Span<T> span, IComparer<T>? comparer = null, MemoryProfile profile = MemoryProfile.Baseline)
         => WikiSort<T, IComparer<T>?>(span, comparer, profile);
 
-    /// <inheritdoc cref="WikiSort{T, TComparer}(Span{T}, TComparer, MemoryProfile)" />
-    public static void WikiSort<T>(this Span<T> span, Comparison<T> comparer, MemoryProfile profile = MemoryProfile.Baseline)
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="Wiki"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/TypeParams/Member[@name="T"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="span"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="comparison"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="profile"]/*' />
+    [ApiTemplate(nameof(T))]
+    public static void WikiSort<T>(this Span<T> span, Comparison<T> comparison, MemoryProfile profile = MemoryProfile.Baseline)
     {
-        ArgumentNullException.ThrowIfNull(comparer, nameof(comparer));
+        ArgumentNullException.ThrowIfNull(comparison, nameof(comparison));
 
         if (span.Length <= 1)
             return;
-        Wiki.Fn<T>.Sort(span, comparer, profile);
+        Wiki.Fn<T>.Sort(span, comparison, profile);
     }
 
-    /// <summary>
-    /// Sorts the elements in the span using the <see href="https://github.com/BonzaiThePenguin/WikiSort">WikiSort</see> algorithm,
-    /// which is a <see href="https://en.wikipedia.org/wiki/Sorting_algorithm#Stability">stable</see> block merge sort algorithm.
-    /// </summary>
-    /// <typeparam name="T">The type of elements.</typeparam>
-    /// <typeparam name="TComparer">The type of the comparer.</typeparam>
-    /// <param name="span">The span to sort.</param>
-    /// <param name="comparer">The comparer to use for sorting.</param>
-    /// <param name="profile">The profile to use for allocating temporary cache. A fixed limit is applied with the default profile.</param>
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Common/Member[@name="Wiki"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/TypeParams/Member[@name="T_TComparer"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="span"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="comparer"]/*' />
+    /// <include file='XmlDocComments.xml' path='XmlDocComments/Params/Member[@name="profile"]/*' />
+    [ApiTemplate(nameof(T))]
     public static void WikiSort<T, TComparer>(this Span<T> span, TComparer comparer, MemoryProfile profile = MemoryProfile.Baseline)
         where TComparer : IComparer<T>?
     {
@@ -58,56 +69,9 @@ public static partial class Extensions
         else
             Wiki.Cmp<T, IComparer<T>>.Sort(span, (IComparer<T>?)comparer ?? Comparer<T>.Default, profile);
     }
-
-    /// <inheritdoc cref="WikiSort{K, V, TComparer}(Span{K}, Span{V}, TComparer, MemoryProfile)" />
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WikiSort<K, V>(this Span<K> keys, Span<V> items, MemoryProfile profile = MemoryProfile.Baseline)
-        => WikiSort<K, V, IComparer<K>?>(keys, items, null, profile);
-
-    /// <inheritdoc cref="WikiSort{K, V, TComparer}(Span{K}, Span{V}, TComparer, MemoryProfile)" />
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void WikiSort<K, V>(this Span<K> keys, Span<V> items, IComparer<K>? comparer = null, MemoryProfile profile = MemoryProfile.Baseline)
-        => WikiSort<K, V, IComparer<K>?>(keys, items, comparer, profile);
-
-    /// <inheritdoc cref="WikiSort{K, V, TComparer}(Span{K}, Span{V}, TComparer, MemoryProfile)" />
-    public static void WikiSort<K, V>(this Span<K> keys, Span<V> items, Comparison<K> comparer, MemoryProfile profile = MemoryProfile.Baseline)
-    {
-        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
-        ArgumentNullException.ThrowIfNull(comparer, nameof(comparer));
-
-        if (keys.Length <= 1)
-            return;
-        Wiki.Fn<K>.Sort(keys, items, comparer, profile);
-    }
-
-#pragma warning disable CS1573
-    /// <typeparam name="K">The type of the keys.</typeparam>
-    /// <typeparam name="V">The type of the values.</typeparam>
-    /// <typeparam name="TComparer">The type of the comparer for the keys.</typeparam>
-    /// <param name="keys">The span of keys to sort.</param>
-    /// <param name="items">The span of values to sort.</param>
-    /// <param name="comparer">The comparer to use for sorting the keys.</param>
-    /// <inheritdoc cref="WikiSort{T, TComparer}(Span{T}, TComparer, MemoryProfile)" />
-    public static void WikiSort<K, V, TComparer>(this Span<K> keys, Span<V> items, TComparer comparer, MemoryProfile profile = MemoryProfile.Baseline)
-        where TComparer : IComparer<K>?
-    {
-        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, items.Length, nameof(items));
-
-        if (keys.Length <= 1)
-            return;
-        else if (typeof(TComparer).IsValueType)
-#pragma warning disable CS8631
-            Wiki.Cmp<K, TComparer>.Sort(keys, items, comparer, profile);
-#pragma warning restore CS8631
-        else if (comparer is null || comparer as IComparer<K> == Comparer<K>.Default)
-            Dispatcher<K>.To.WikiSort(keys, items, profile);
-        else
-            Wiki.Cmp<K, IComparer<K>>.Sort(keys, items, (IComparer<K>?)comparer ?? Comparer<K>.Default, profile);
-    }
 }
-#pragma warning restore CS1573
 
-[Sort(Properties = SortProperties.Stable, Disable = DefaultOverloads.IComparisonOperators)]
+[Sort(Properties = SortProperties.Comparison | SortProperties.Stable, Disable = ComparerOverloads.IComparisonOperators)]
 internal static partial class Wiki
 {
     private const int MaxStaticCacheSize = 512;
@@ -180,7 +144,7 @@ internal static partial class Wiki
 
     internal sealed partial class Fn<T> : ComparisonOperations.Fn<T>
     {
-        [OverloadTemplate(nameof(T), nameof(comp))]
+        [ImplTemplate(nameof(T), Comparer = nameof(comp))]
         static int FindFirstForward(ReadOnlySpan<T> span, int start, int end, ref readonly T value, Comparison<T> comp, int unique)
         {
             int size = end - start;
@@ -198,7 +162,7 @@ internal static partial class Wiki
             return i - skip + LowerBound(span.Sub(i - skip, i), in value, comp);
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp))]
+        [ImplTemplate(nameof(T), Comparer = nameof(comp))]
         static int FindLastForward(ReadOnlySpan<T> span, int start, int end, ref readonly T value, Comparison<T> comp, int unique)
         {
             int size = end - start;
@@ -216,7 +180,7 @@ internal static partial class Wiki
             return i - skip + UpperBound(span.Sub(i - skip, i), in value, comp);
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp))]
+        [ImplTemplate(nameof(T), Comparer = nameof(comp))]
         static int FindFirstBackward(ReadOnlySpan<T> span, int start, int end, ref readonly T value, Comparison<T> comp, int unique)
         {
             int size = end - start;
@@ -234,7 +198,7 @@ internal static partial class Wiki
             return i + LowerBound(span.Sub(i, i + skip), in value, comp);
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp))]
+        [ImplTemplate(nameof(T), Comparer = nameof(comp))]
         static int FindLastBackward(ReadOnlySpan<T> span, int start, int end, ref readonly T value, Comparison<T> comp, int unique)
         {
             int size = end - start;
@@ -253,7 +217,7 @@ internal static partial class Wiki
         }
 
         // merge operation using an external buffer
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span), nameof(cache))]
+        [ImplTemplate(nameof(T), nameof(span), nameof(cache), Comparer = nameof(comp))]
         static void MergeExternal(Span<T> span, int split, Span<T> cache, Comparison<T> comp)
         {
             // A fits into the cache, so use that instead of the internal buffer
@@ -294,7 +258,7 @@ internal static partial class Wiki
         }
 
         // merge operation using an internal buffer
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span), nameof(buffer))]
+        [ImplTemplate(nameof(T), nameof(span), nameof(buffer), Comparer = nameof(comp))]
         static void MergeInternal(Span<T> span, int split, Span<T> buffer, Comparison<T> comp)
         {
             // whenever we find a value to add to the final array, swap it with the value that's already in that spot
@@ -332,7 +296,7 @@ internal static partial class Wiki
         }
 
         // merge operation without a buffer
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span), nameof(cache))]
+        [ImplTemplate(nameof(T), nameof(span), nameof(cache), Comparer = nameof(comp))]
         static void MergeInPlace(Span<T> span, int split, Span<T> cache, Comparison<T> comp)
         {
             if (split == 0 || split == span.Length) return;
@@ -377,7 +341,7 @@ internal static partial class Wiki
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         static void Sort2(Span<T> span, Span<byte> order, int i, int j, Comparison<T> comp)
         {
             if (Less(in span.Ref(j), in span.Ref(i), comp) ||
@@ -388,7 +352,7 @@ internal static partial class Wiki
             }
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         [SkipLocalsInit]
         internal static void BlockSortLoop(Span<T> span, Comparison<T> comp, ref Iterator iterator)
         {
@@ -446,7 +410,7 @@ internal static partial class Wiki
         }
 
         // bottom-up merge sort combined with an in-place merge algorithm for O(1) memory use
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span))]
+        [ImplTemplate(nameof(T), nameof(span), Comparer = nameof(comp))]
         [SkipLocalsInit]
         public static unsafe void Sort(Span<T> span, Comparison<T> comp, MemoryProfile profile)
         {
@@ -493,7 +457,8 @@ internal static partial class Wiki
             if (profile == MemoryProfile.Baseline || cacheSize < MaxStaticCacheSize)
             {
                 using MemoryOwner<T> owner = new ();
-                Span<T> cache = RuntimeHelpers.IsReferenceOrContainsReferences<T>() || (nint)Unsafe.SizeOf<T>() * MaxStaticCacheSize <= MaxStackAllocSize
+                    bool stack = CanStackAlloc<T>(MaxStaticCacheSize);
+                    Span<T> cache = RuntimeHelpers.IsReferenceOrContainsReferences<T>() || !stack
                     ? owner.Attach(MemoryPool<T>.Shared.Rent(MaxStaticCacheSize)).Memory.Span
                     : new Span<T>(
                         Unsafe.AsPointer(ref MemoryMarshal.GetReference(stackalloc byte[Unsafe.SizeOf<T>() * MaxStaticCacheSize])),
@@ -510,7 +475,7 @@ internal static partial class Wiki
             }
         }
 
-        [OverloadTemplate(nameof(T), nameof(comp), nameof(span), nameof(cache))]
+        [ImplTemplate(nameof(T), nameof(span), nameof(cache), Comparer = nameof(comp))]
         [SkipLocalsInit]
         internal static void SortLoop(Span<T> span, Span<T> cache, Comparison<T> comp, ref Iterator iterator)
         {

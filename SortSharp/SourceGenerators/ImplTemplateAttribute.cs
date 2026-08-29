@@ -7,28 +7,44 @@ namespace SortSharp.SourceGenerators;
 
 [Conditional("__NEVER__")]
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
-internal sealed class OverloadTemplateAttribute(string type, string? comparer, params string[] identifiers) : Attribute
+internal sealed class ImplTemplateAttribute(string type, params string[] identifiers) : Attribute
 {
-    public DefaultOverloads Disable { get; set; }
-    public OptionalOverloads Enable { get; set; }
+    public OverloadOption KeyValue { get; set; } = OverloadOption.Enable;
+    public bool KeySelector { get; set; } = false;
+
+    public string? Comparer { get; set; }
+    public ComparerOverloads Disable { get; set; }
+    //public OptionalOverloads Enable { get; set; }
+
+    public string? Broadcast { get; set; }
+}
+
+[Conditional("__NEVER__")]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = false, Inherited = false)]
+internal sealed class ReceiverAttribute(params string[] broadcasts) : Attribute
+{
+    public string? Type { get; set; }
+}
+
+internal enum OverloadOption : byte
+{
+    Disable,
+    Enable,
+    Specialized,
 }
 
 [Flags]
-internal enum DefaultOverloads : ushort
+internal enum ComparerOverloads : byte
 {
-    KeyValue = 1,
-    KeySelector = 2,
-
-    Comparison = 1 << 8,
-    TComparer = 1 << 9,
-    IComparable = 1 << 10,
-    IComparisonOperators = 1 << 11,
+    Comparison = 1 << 0,
+    TComparer = 1 << 1,
+    IComparable = 1 << 2,
+    IComparisonOperators = 1 << 3,
+    All = byte.MaxValue
 }
 
 [Flags]
-internal enum OptionalOverloads : ushort
+internal enum OptionalOverloads : byte
 {
-    SiblingSpecializations = 1,
-
-    LessThanOrEqual = 1 << 8,
+    //LessThanOrEqual = 1 << 0,
 }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using SortSharp.Foundation;
 
 namespace SortSharp.Compat;
 
@@ -58,7 +59,7 @@ internal partial class BclPolyfills
         {
             4 => int.MinValue,
             8 => unchecked((nint)long.MinValue),
-            _ => throw new NotSupportedException()
+            _ => ThrowHelper.ThrowUnreachable()
         };
     }
 #endif
