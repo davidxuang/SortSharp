@@ -9,6 +9,7 @@
     <CompilerGeneratedFilesOutputPath>obj/$(Configuration)/$(TargetFramework)/Generated</CompilerGeneratedFilesOutputPath>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>sort;PDQ sort;IPN sort;Wiki sort;Grail sort;Radix sort;rotate;lower bound;upper bound</PackageTags>
     <RepositoryUrl>https://github.com/davidxuang/SortSharp</RepositoryUrl>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
