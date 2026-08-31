@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\SortSharp.Testing\SortSharp.Testing.csproj" />
     <ProjectReference Include="..\SortSharp\SortSharp.csproj" />
   </ItemGroup>
 

@@ -10,7 +10,7 @@ namespace SortSharp.Compat;
 #if !NET8_0_OR_GREATER
 /// <seealso href="https://github.com/dotnet/dotnet/blob/v11.0.100/src/runtime/src/libraries/System.Private.CoreLib/src/System/Numerics/TotalOrderIeee754Comparer.cs"/>
 [SkipLocalsInit]
-internal readonly struct TotalOrderIeee754Comparer<T> : IComparer<T>, IEquatable<TotalOrderIeee754Comparer<T>>
+internal readonly struct TotalOrderIeee754Comparer<T> : IComparer<T>, IEqualityComparer<T>, IEquatable<TotalOrderIeee754Comparer<T>>
 #if NET7_0_OR_GREATER
     where T : IFloatingPointIeee754<T>
 #endif
@@ -175,6 +175,14 @@ internal readonly struct TotalOrderIeee754Comparer<T> : IComparer<T>, IEquatable
     static int CompareIntegerSemantic(long x, long y)
         => (x < 0 && y < 0) ? y.CompareTo(x) : x.CompareTo(y);
 #endif
+
+    public bool Equals(T? x, T? y) => Compare(x, y) == 0;
+
+    public int GetHashCode(T obj)
+    {
+        ArgumentNullException.ThrowIfNull(obj);
+        return obj!.GetHashCode();
+    }
 
     public bool Equals(TotalOrderIeee754Comparer<T> other) => true;
     public override bool Equals([NotNullWhen(true)] object? obj) => obj is TotalOrderIeee754Comparer<T>;

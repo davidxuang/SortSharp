@@ -1,8 +1,6 @@
-﻿using System;
-using System.IO;
-using System.Linq;
-using BenchmarkDotNet.Attributes;
+﻿using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
+using SortSharp.Testing;
 
 namespace SortSharp.Benchmarks;
 
@@ -43,7 +41,7 @@ public partial class IntegerBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        data = IntegerGenerator<int>.GetArray(Size, Pattern);
+        data = new IntegerGenerator<int>().GetArray(Size, Pattern);
         buffer = new int[Size];
         truth = new int[Size];
         Array.Copy(data, truth, Size);

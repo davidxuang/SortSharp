@@ -1,6 +1,6 @@
 using System;
 
-namespace SortSharp.Benchmarks;
+namespace SortSharp.Testing;
 
 internal readonly struct ZipfSampler
 {

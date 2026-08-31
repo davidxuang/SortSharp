@@ -1,9 +1,7 @@
-using System;
-using System.IO;
-using System.Linq;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 using BenchmarkDotNet.Running;
+using SortSharp.Testing;
 
 namespace SortSharp.Benchmarks;
 
@@ -29,17 +27,11 @@ public partial class StringBenchmarks
     ])]
     public StringPattern Pattern;
 
-    public enum OrderType
-    {
-        Default,
-        Ordinal,
-    }
-
     [Params([
-        OrderType.Default,
-        OrderType.Ordinal,
+        StringOrder.Default,
+        StringOrder.Ordinal,
     ])]
-    public OrderType Order;
+    public StringOrder Order;
 
     private string[] data = null;
     private string[] buffer = null;
@@ -48,11 +40,11 @@ public partial class StringBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        data = StringGenerator.GetArray(Size, Pattern);
+        data = new StringGenerator().GetArray(Size, Pattern);
         buffer = new string[Size];
         truth = new string[Size];
         Array.Copy(data, truth, Size);
-        if (Order == OrderType.Ordinal)
+        if (Order == StringOrder.Ordinal)
             Array.Sort(truth, StringComparer.Ordinal);
         else
             Array.Sort(truth);
@@ -67,7 +59,7 @@ public partial class StringBenchmarks
     [GlobalCleanup]
     public void Validate()
     {
-        if (Order == OrderType.Ordinal)
+        if (Order == StringOrder.Ordinal)
         {
             for (int i = 0; i < Size; i++)
                 if (StringComparer.Ordinal.Compare(buffer[i], truth[i]) != 0)
@@ -84,7 +76,7 @@ public partial class StringBenchmarks
     [Benchmark(Baseline = true)]
     public void Sort()
     {
-        if (Order == OrderType.Ordinal)
+        if (Order == StringOrder.Ordinal)
             buffer.Sort(StringComparer.Ordinal);
         else
             buffer.Sort();
@@ -93,7 +85,7 @@ public partial class StringBenchmarks
     [Benchmark]
     public void IPNSort()
     {
-        if (Order == OrderType.Ordinal)
+        if (Order == StringOrder.Ordinal)
             buffer.IPNSort(StringComparer.Ordinal);
         else
             buffer.IPNSort();
@@ -102,7 +94,7 @@ public partial class StringBenchmarks
     [Benchmark]
     public void PDQSort()
     {
-        if (Order == OrderType.Ordinal)
+        if (Order == StringOrder.Ordinal)
             buffer.PDQSort(StringComparer.Ordinal);
         else
             buffer.PDQSort();
@@ -114,7 +106,7 @@ public partial class StringBenchmarks
     [Arguments(MemoryProfile.Medium)]
     public void GrailSort(MemoryProfile Profile)
     {
-        if (Order == OrderType.Ordinal)
+        if (Order == StringOrder.Ordinal)
             buffer.GrailSort(StringComparer.Ordinal, Profile);
         else
             buffer.GrailSort(Profile);
@@ -127,7 +119,7 @@ public partial class StringBenchmarks
     [Arguments(MemoryProfile.High)]
     public void WikiSort(MemoryProfile Profile)
     {
-        if (Order == OrderType.Ordinal)
+        if (Order == StringOrder.Ordinal)
             buffer.WikiSort(StringComparer.Ordinal, Profile);
         else
             buffer.WikiSort(Profile);
@@ -161,11 +153,11 @@ public partial class StringBenchmarks
 
         protected override bool PredicateOverride(BenchmarkCase benchmarkCase, int size, StringPattern pattern, object variant)
         {
-            var order = (OrderType)benchmarkCase.Parameters.Items
+            var order = (StringOrder)benchmarkCase.Parameters.Items
                 .Single(p => p.Name == nameof(Order))
                 .Value;
 
-            if (benchmarkCase.Descriptor.WorkloadMethod.Name.StartsWith(nameof(Radix)) && order != OrderType.Ordinal)
+            if (benchmarkCase.Descriptor.WorkloadMethod.Name.StartsWith(nameof(Radix)) && order != StringOrder.Ordinal)
                 return false;
 
             return true;

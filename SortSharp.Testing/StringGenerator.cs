@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-
-namespace SortSharp.Benchmarks;
+﻿namespace SortSharp.Testing;
 
 public enum StringPattern
 {
@@ -13,14 +8,15 @@ public enum StringPattern
     NounZipf1,
 }
 
-internal static class StringGenerator
+public readonly struct StringGenerator()
 {
-    public static string[] GetArray(int length, StringPattern pattern)
+    private readonly char[] buffer = new char[64];
+
+    public string[] GetArray(int length, StringPattern pattern)
     {
         var array = new string[length];
         var random = new Random(42);
-        var buffer = (stackalloc char[64]);
-        
+
         switch (pattern)
         {
             case StringPattern.Ascii64:
@@ -53,7 +49,7 @@ internal static class StringGenerator
                             3 => 'T',
                             _ => throw new InvalidDataException(),
                         };
-                    array[i] = new string(buffer[..32]);
+                    array[i] = new string(buffer, 0, 32);
                 }
                 break;
             case StringPattern.NounZipf1:
@@ -61,7 +57,7 @@ internal static class StringGenerator
                 for (int i = 0; i < length; i++)
                 {
                     long value = zipf.Next(random);
-                    array[i] = new string(CocaNoun.List[(int)value].AsSpan());
+                    array[i] = CocaNoun.List[(int)value].CreateString();
                 }
                 break;
             default:
@@ -81,14 +77,21 @@ internal static class CocaNoun
         var assembly = typeof(CocaNoun).Assembly;
         var resource = assembly.GetManifestResourceNames()
             .Single(str => str.EndsWith("coca_lemma_5k_noun.txt"));
-        using var stream = assembly.GetManifestResourceStream(resource);
+        using var stream = assembly.GetManifestResourceStream(resource)
+            ?? throw new InvalidDataException();
         static IEnumerable<string> read(Stream stream)
         {
             using var reader = new StreamReader(stream);
-            string line;
+            string? line;
             while ((line = reader.ReadLine()) is not null)
                 yield return line;
         }
         List = [.. read(stream).Where(s => !string.IsNullOrWhiteSpace(s) && char.IsAsciiLetter(s[0]))];
     }
+}
+
+public enum StringOrder
+{
+    Default,
+    Ordinal,
 }

@@ -1,6 +1,4 @@
-﻿using System;
-using System.Diagnostics;
-using System.Linq;
+﻿using System.Diagnostics;
 using System.Numerics;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Engines;
@@ -127,10 +125,4 @@ internal abstract class FilterBase<T> : IFilter
         T pattern,
         object variant)
         => true;
-}
-
-public enum BranchlessProfile
-{
-    Branchy,
-    Branchless,
 }

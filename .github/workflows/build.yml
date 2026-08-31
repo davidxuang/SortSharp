@@ -37,7 +37,7 @@ jobs:
       - name: Test
         run: |
           $PSNativeCommandUseErrorActionPreference = $true
-          dotnet test SortSharp.Tests/SortSharp.Tests.csproj --configuration Release --no-build
+          dotnet test SortSharp.Tests/SortSharp.Tests.csproj --configuration Release --coverage --no-build
 
   publish:
     name: Publish to NuGet

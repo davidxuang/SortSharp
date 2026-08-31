@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace SortSharp.Benchmarks;
+﻿namespace SortSharp.Testing;
 
 public enum DoublePattern
 {
@@ -9,9 +7,11 @@ public enum DoublePattern
     NanTail5,
 }
 
-internal static class DoubleGenerator
+public readonly struct DoubleGenerator()
 {
-    public static double[] GetArray(int length, DoublePattern pattern)
+    private readonly byte[] bytes = new byte[sizeof(double)];
+
+    public double[] GetArray(int length, DoublePattern pattern)
     {
         var array = new double[length];
         var random = new Random(42);
@@ -20,7 +20,7 @@ internal static class DoubleGenerator
         {
             case DoublePattern.RandomFinite:
                 for (int i = 0; i < length; i++)
-                    array[i] = random.NextFinite();
+                    array[i] = NextFinite(random);
                 break;
             case DoublePattern.RandomCategory:
                 for (int i = 0; i < length; i++)
@@ -30,16 +30,16 @@ internal static class DoubleGenerator
                         -1 => double.NegativeZero,
                         0 => 0d,
                         5 => double.PositiveInfinity,
-                        -7 or -8 or 6 or 7 => random.NextNaN(),
-                        _ => random.NextFinite(),
+                        -7 or -8 or 6 or 7 => NextNaN(random),
+                        _ => NextFinite(random),
                     };
                 break;
             case DoublePattern.NanTail5:
                 int j = 0;
                 for (; j < length * 19 / 20; j++)
-                    array[j] = random.NextFinite();
+                    array[j] = NextFinite(random);
                 for (; j < length; j++)
-                    array[j] = random.NextNaN();
+                    array[j] = NextNaN(random);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(pattern));
@@ -48,32 +48,36 @@ internal static class DoubleGenerator
         return array;
     }
 
-    private static double NextFinite(this Random random)
+    private double NextFinite(Random random)
     {
-        Span<byte> bytes = stackalloc byte[sizeof(double)];
         double value;
         do
         {
             random.NextBytes(bytes);
-            value = BitConverter.ToDouble(bytes);
+            value = BitConverter.ToDouble(bytes, 0);
         } while (!double.IsFinite(value));
         return value;
     }
 
-    private const ulong ExponentMask = 0x7FF0_0000_0000_0000;
-    private const ulong MantissaMask = 0x000F_FFFF_FFFF_FFFF;
-    private const ulong SignMask     = 0x8000_0000_0000_0000;
+    private const long ExponentMask = 0x7FF0_0000_0000_0000;
+    private const long MantissaMask = 0x000F_FFFF_FFFF_FFFF;
+    private const long SignMask     = unchecked((long)0x8000_0000_0000_0000);
 
-    private static double NextNaN(this Random random)
+    private double NextNaN(Random random)
     {
-        Span<byte> bytes = stackalloc byte[sizeof(double)];
-        ulong bits;
+        long bits;
         do
         {
             random.NextBytes(bytes);
-            bits = BitConverter.ToUInt64(bytes);
+            bits = BitConverter.ToInt64(bytes, 0);
         } while ((bits & MantissaMask) == 0); // reject Inf
         bits = (bits & (SignMask | MantissaMask)) | ExponentMask;
-        return BitConverter.UInt64BitsToDouble(bits);
+        return BitConverter.Int64BitsToDouble(bits);
     }
+}
+
+public enum BfpIeeeOrder
+{
+    Default,
+    TotalIeee754,
 }

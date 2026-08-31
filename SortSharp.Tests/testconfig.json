@@ -1,0 +1,13 @@
+{
+  "codeCoverage": {
+    "Configuration": {
+      "CodeCoverage": {
+        "ModulePaths": {
+          "Exclude": [
+            "SortSharp\\.Testing\\.dll"
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,10 +1,8 @@
-using System;
-using System.IO;
-using System.Linq;
 using System.Numerics;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 using BenchmarkDotNet.Running;
+using SortSharp.Testing;
 
 namespace SortSharp.Benchmarks;
 
@@ -29,17 +27,11 @@ public partial class DoubleBenchmarks
     ])]
     public DoublePattern Pattern;
 
-    public enum OrderType
-    {
-        Default,
-        TotalIeee754,
-    }
-
     [Params([
-        OrderType.Default,
-        OrderType.TotalIeee754,
+        BfpIeeeOrder.Default,
+        BfpIeeeOrder.TotalIeee754,
     ])]
-    public OrderType Order;
+    public BfpIeeeOrder Order;
 
     private double[] data = null;
     private double[] buffer = null;
@@ -49,11 +41,11 @@ public partial class DoubleBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        data = DoubleGenerator.GetArray(Size, Pattern);
+        data = new DoubleGenerator().GetArray(Size, Pattern);
         buffer = new double[Size];
         truth = new double[Size];
         Array.Copy(data, truth, Size);
-        if (Order == OrderType.TotalIeee754)
+        if (Order == BfpIeeeOrder.TotalIeee754)
             Array.Sort(truth, totalComparer);
         else
             Array.Sort(truth);
@@ -68,7 +60,7 @@ public partial class DoubleBenchmarks
     [GlobalCleanup]
     public void Validate()
     {
-        if (Order == OrderType.TotalIeee754)
+        if (Order == BfpIeeeOrder.TotalIeee754)
         {
             for (int i = 0; i < Size; i++)
                 if (totalComparer.Compare(buffer[i], truth[i]) != 0)
@@ -85,7 +77,7 @@ public partial class DoubleBenchmarks
     [Benchmark(Baseline = true)]
     public void Sort()
     {
-        if (Order == OrderType.TotalIeee754)
+        if (Order == BfpIeeeOrder.TotalIeee754)
             buffer.Sort(totalComparer);
         else
             buffer.Sort();
@@ -96,7 +88,7 @@ public partial class DoubleBenchmarks
     [Arguments(BranchlessProfile.Branchless)]
     public void IPNSort(BranchlessProfile Profile)
     {
-        if (Order == OrderType.TotalIeee754)
+        if (Order == BfpIeeeOrder.TotalIeee754)
             buffer.IPNSort(totalComparer);
         else if (Profile == BranchlessProfile.Branchless)
             buffer.IPNSort();
@@ -109,7 +101,7 @@ public partial class DoubleBenchmarks
     [Arguments(BranchlessProfile.Branchless)]
     public void PDQSort(BranchlessProfile Profile)
     {
-        if (Order == OrderType.TotalIeee754)
+        if (Order == BfpIeeeOrder.TotalIeee754)
             buffer.PDQSort(totalComparer);
         else if (Profile == BranchlessProfile.Branchless)
             buffer.PDQSort();
@@ -123,7 +115,7 @@ public partial class DoubleBenchmarks
     [Arguments(MemoryProfile.Medium)]
     public void GrailSort(MemoryProfile Profile)
     {
-        if (Order == OrderType.TotalIeee754)
+        if (Order == BfpIeeeOrder.TotalIeee754)
             buffer.GrailSort(totalComparer, Profile);
         else
             buffer.GrailSort(Profile);
@@ -136,7 +128,7 @@ public partial class DoubleBenchmarks
     [Arguments(MemoryProfile.High)]
     public void WikiSort(MemoryProfile Profile)
     {
-        if (Order == OrderType.TotalIeee754)
+        if (Order == BfpIeeeOrder.TotalIeee754)
             buffer.WikiSort(totalComparer, Profile);
         else
             buffer.WikiSort(Profile);
@@ -176,14 +168,14 @@ public partial class DoubleBenchmarks
 
         protected override bool PredicateOverride(BenchmarkCase benchmarkCase, int size, DoublePattern pattern, object variant)
         {
-            var order = (OrderType)benchmarkCase.Parameters.Items
+            var order = (BfpIeeeOrder)benchmarkCase.Parameters.Items
                 .Single(p => p.Name == nameof(Order))
                 .Value;
 
-            if (benchmarkCase.Descriptor.WorkloadMethod.Name.StartsWith(nameof(Radix)) && order != OrderType.TotalIeee754)
+            if (benchmarkCase.Descriptor.WorkloadMethod.Name.StartsWith(nameof(Radix)) && order != BfpIeeeOrder.TotalIeee754)
                 return false;
 
-            if (order != OrderType.Default && variant is BranchlessProfile.Branchless)
+            if (order != BfpIeeeOrder.Default && variant is BranchlessProfile.Branchless)
                 return false;
 
             return true;
